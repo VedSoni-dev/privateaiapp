@@ -11,6 +11,7 @@
  * The model sees tool results as structured blocks in the system prompt,
  * making it behave like a proper tool-using agent without native function calling.
  */
+import { RunAnywhere } from '@runanywhere/core';
 import * as Memory from './MemoryService';
 import { planSearch, webSearch } from './WebSearchService';
 import { buildAttachmentBlock, type Attachment } from './AttachmentService';
