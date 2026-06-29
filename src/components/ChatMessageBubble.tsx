@@ -11,6 +11,7 @@ export interface ChatMessage {
   totalTokens?: number;
   isError?: boolean;
   wasCancelled?: boolean;
+  toolCalls?: Array<{ tool: string; query?: string; found: boolean }>;
 }
 
 interface ChatMessageBubbleProps {
@@ -19,245 +20,216 @@ interface ChatMessageBubbleProps {
   onLongPress?: (message: ChatMessage) => void;
 }
 
-// Markdown style rules matching the app's ivory/clay palette.
 const mdStyles = StyleSheet.create({
   body: {
     color: AppColors.textPrimary,
-    fontSize: 15.5,
-    lineHeight: 23,
+    fontSize: 15,
+    lineHeight: 26,
     fontFamily: Fonts.sans,
   },
-  heading1: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: AppColors.textPrimary,
-    marginBottom: 6,
-    marginTop: 10,
-  },
-  heading2: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: AppColors.textPrimary,
-    marginBottom: 4,
-    marginTop: 8,
-  },
-  heading3: {
-    fontSize: 15.5,
-    fontWeight: '600',
-    color: AppColors.textPrimary,
-    marginBottom: 2,
-    marginTop: 6,
-  },
-  strong: {
-    fontWeight: '700',
-  },
-  em: {
-    fontStyle: 'italic',
-  },
+  heading1: { fontSize: 19, fontWeight: '700', color: AppColors.textPrimary, marginBottom: 8, marginTop: 16 },
+  heading2: { fontSize: 16, fontWeight: '600', color: AppColors.textPrimary, marginBottom: 6, marginTop: 12 },
+  heading3: { fontSize: 15, fontWeight: '600', color: AppColors.textSecondary, marginBottom: 4, marginTop: 8 },
+  strong: { fontWeight: '600', color: AppColors.textPrimary },
+  em: { fontStyle: 'italic', color: AppColors.textSecondary },
   code_inline: {
     fontFamily: Fonts.mono,
-    fontSize: 13.5,
-    backgroundColor: AppColors.borderStrong + '55',
+    fontSize: 13,
+    backgroundColor: AppColors.surfaceCard,
     borderRadius: 4,
-    paddingHorizontal: 5,
+    paddingHorizontal: 6,
     paddingVertical: 1,
     color: AppColors.accentCyan,
   },
   fence: {
     fontFamily: Fonts.mono,
-    fontSize: 13,
-    backgroundColor: AppColors.primaryMid,
-    borderRadius: 10,
-    padding: 12,
-    marginVertical: 6,
+    fontSize: 12.5,
+    backgroundColor: AppColors.surfaceCard,
+    borderRadius: 8,
+    padding: 14,
+    marginVertical: 8,
     color: AppColors.textPrimary,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: AppColors.borderStrong,
+    borderWidth: 1,
+    borderColor: AppColors.border,
   },
   blockquote: {
-    borderLeftWidth: 3,
-    borderLeftColor: AppColors.accentCyan,
-    paddingLeft: 12,
+    borderLeftWidth: 2,
+    borderLeftColor: AppColors.border,
+    paddingLeft: 14,
     marginLeft: 0,
-    opacity: 0.8,
+    color: AppColors.textMuted,
   },
-  bullet_list: {
-    marginVertical: 2,
-  },
-  ordered_list: {
-    marginVertical: 2,
-  },
-  list_item: {
-    marginVertical: 1,
-  },
-  bullet_list_icon: {
-    color: AppColors.accentCyan,
-    marginRight: 6,
-    fontSize: 15.5,
-  },
-  ordered_list_icon: {
-    color: AppColors.textSecondary,
-    marginRight: 6,
-    fontSize: 15.5,
-  },
-  link: {
-    color: AppColors.accentCyan,
-    textDecorationLine: 'underline',
-  },
-  hr: {
-    backgroundColor: AppColors.border,
-    height: StyleSheet.hairlineWidth,
-    marginVertical: 8,
-  },
-  table: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: AppColors.border,
-    borderRadius: 8,
-    overflow: 'hidden',
-    marginVertical: 6,
-  },
-  th: {
-    backgroundColor: AppColors.surfaceCard,
-    padding: 8,
-    fontWeight: '600',
-  },
-  td: {
-    padding: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: AppColors.border,
-  },
+  bullet_list: { marginVertical: 4 },
+  ordered_list: { marginVertical: 4 },
+  list_item: { marginVertical: 3 },
+  bullet_list_icon: { color: AppColors.textMuted, marginRight: 8, fontSize: 15 },
+  ordered_list_icon: { color: AppColors.textMuted, marginRight: 8, fontSize: 15 },
+  link: { color: AppColors.accentCyan, textDecorationLine: 'underline' },
+  hr: { backgroundColor: AppColors.border, height: 1, marginVertical: 12 },
+  table: { borderWidth: 1, borderColor: AppColors.border, borderRadius: 6, overflow: 'hidden', marginVertical: 8 },
+  th: { backgroundColor: AppColors.surfaceCard, padding: 10, fontWeight: '600', color: AppColors.textPrimary },
+  td: { padding: 10, borderTopWidth: 1, borderTopColor: AppColors.border, color: AppColors.textPrimary },
 });
 
+const TOOL_ICONS: Record<string, string> = {
+  web_search: '🔍',
+  memory_recall: '🧠',
+  datetime: '🕐',
+};
+
 export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = memo(({
-  message,
-  isStreaming = false,
-  onLongPress,
+  message, isStreaming = false, onLongPress,
 }) => {
-  const { text, isUser, tokensPerSecond, totalTokens, isError, wasCancelled } = message;
+  const { text, isUser, tokensPerSecond, totalTokens, isError, wasCancelled, toolCalls } = message;
 
+  if (isUser) {
+    return (
+      <View style={styles.userContainer}>
+        <Pressable
+          onLongPress={() => onLongPress?.(message)}
+          delayLongPress={300}
+          style={({ pressed }) => [styles.userBubble, pressed && { opacity: 0.8 }]}
+        >
+          <Text style={styles.userText}>{text}</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  // Assistant — no bubble, flows directly on background (ChatGPT style)
   return (
-    <View
-      style={[
-        styles.container,
-        isUser ? styles.userContainer : styles.assistantContainer,
-      ]}
+    <Pressable
+      onLongPress={() => onLongPress?.(message)}
+      delayLongPress={300}
+      style={({ pressed }) => [styles.assistantContainer, pressed && { opacity: 0.7 }]}
     >
-      <Pressable
-        onLongPress={() => onLongPress?.(message)}
-        delayLongPress={300}
-        style={({ pressed }) => [
-          styles.bubble,
-          isUser ? styles.userBubble : styles.assistantBubble,
-          isError && styles.errorBubble,
-          pressed && styles.bubblePressed,
-        ]}
-      >
-        {isUser ? (
-          <Text
-            style={[
-              styles.text,
-              styles.userText,
-            ]}
-          >
-            {text}
-          </Text>
-        ) : (
-          <Markdown style={isError ? { body: { ...mdStyles.body, color: AppColors.error } } : mdStyles}>
-            {text || (isStreaming ? ' ' : '')}
-          </Markdown>
-        )}
+      {/* Tool call pills */}
+      {toolCalls && toolCalls.filter(tc => tc.tool !== 'datetime').length > 0 && (
+        <View style={styles.toolRow}>
+          {toolCalls
+            .filter(tc => tc.tool !== 'datetime')
+            .map((tc, i) => (
+              <View key={i} style={[styles.toolPill, !tc.found && styles.toolPillFailed]}>
+                <Text style={styles.toolPillIcon}>{TOOL_ICONS[tc.tool] ?? '⚙️'}</Text>
+                <Text style={styles.toolPillText} numberOfLines={1}>
+                  {tc.tool === 'web_search'
+                    ? tc.found ? `Searched "${tc.query}"` : `No results`
+                    : 'Memory recalled'}
+                </Text>
+              </View>
+            ))}
+        </View>
+      )}
 
-        {!isUser && !isStreaming && (tokensPerSecond || totalTokens) && (
-          <View style={styles.metricsContainer}>
-            {tokensPerSecond && (
-              <Text style={styles.metrics}>
-                ⚡ {tokensPerSecond.toFixed(1)} tok/s
-              </Text>
-            )}
-            {totalTokens && (
-              <Text style={styles.metrics}>📊 {totalTokens} tokens</Text>
-            )}
-          </View>
+      {/* Message content */}
+      <View style={styles.assistantContent}>
+        <Markdown
+          style={isError ? { ...mdStyles, body: { ...mdStyles.body, color: AppColors.error } } : mdStyles}
+        >
+          {text || (isStreaming ? ' ' : '')}
+        </Markdown>
+
+        {isStreaming && (
+          <View style={styles.streamingCursor} />
         )}
 
         {wasCancelled && (
-          <Text style={styles.cancelledText}>⚠️ Generation cancelled</Text>
+          <Text style={styles.cancelledText}>— stopped</Text>
         )}
+      </View>
 
-        {isStreaming && <Text style={styles.streamingIndicator}>▊</Text>}
-      </Pressable>
-    </View>
+      {/* Metadata */}
+      {!isStreaming && (tokensPerSecond || totalTokens) && (
+        <View style={styles.meta}>
+          {tokensPerSecond ? (
+            <Text style={styles.metaText}>{tokensPerSecond.toFixed(1)} tok/s</Text>
+          ) : null}
+          {totalTokens ? (
+            <Text style={styles.metaText}>{totalTokens} tokens</Text>
+          ) : null}
+        </View>
+      )}
+    </Pressable>
   );
 });
 
 const styles = StyleSheet.create({
-  container: {
-    marginVertical: 5,
-    paddingHorizontal: 16,
-  },
+  // User — right-aligned zinc card
   userContainer: {
     alignItems: 'flex-end',
-  },
-  assistantContainer: {
-    alignItems: 'flex-start',
-  },
-  bubble: {
-    maxWidth: '86%',
-    paddingHorizontal: 15,
-    paddingVertical: 11,
-    borderRadius: 20,
-    marginVertical: 2,
+    paddingHorizontal: 16,
+    marginVertical: 4,
   },
   userBubble: {
-    backgroundColor: AppColors.accentCyan,
-    borderBottomRightRadius: 6,
-    shadowColor: AppColors.accentCyan,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.22,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  assistantBubble: {
+    maxWidth: '80%',
     backgroundColor: AppColors.surfaceCard,
-    borderBottomLeftRadius: 6,
-    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 18,
+    borderTopRightRadius: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    borderWidth: 1,
     borderColor: AppColors.border,
   },
-  errorBubble: {
-    backgroundColor: AppColors.error + '12',
-    borderColor: AppColors.error + '44',
-  },
-  bubblePressed: {
-    opacity: 0.7,
-  },
-  text: {
-    fontFamily: Fonts.sans,
-    fontSize: 15.5,
-    lineHeight: 23,
-  },
   userText: {
-    color: '#FFFFFF',
+    fontFamily: Fonts.sans,
+    fontSize: 15,
+    lineHeight: 23,
+    color: AppColors.textPrimary,
   },
-  metricsContainer: {
+
+  // Assistant — no bubble, plain layout
+  assistantContainer: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    marginVertical: 2,
+  },
+  toolRow: {
     flexDirection: 'row',
-    marginTop: 9,
-    paddingTop: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: AppColors.border,
-    gap: 14,
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 10,
   },
-  metrics: {
-    fontSize: 11,
+  toolPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: AppColors.surfaceCard,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: AppColors.border,
+  },
+  toolPillFailed: { opacity: 0.4 },
+  toolPillIcon: { fontSize: 11 },
+  toolPillText: {
+    fontSize: 11.5,
     color: AppColors.textMuted,
+    fontWeight: '500',
+    maxWidth: 220,
+  },
+  assistantContent: {},
+  streamingCursor: {
+    width: 2,
+    height: 16,
+    backgroundColor: AppColors.accentCyan,
+    borderRadius: 1,
+    marginTop: 2,
   },
   cancelledText: {
-    fontSize: 11,
-    color: AppColors.warning,
-    marginTop: 4,
+    fontSize: 12,
+    color: AppColors.textMuted,
+    marginTop: 6,
+    fontStyle: 'italic',
   },
-  streamingIndicator: {
-    fontSize: 15,
-    color: AppColors.accentCyan,
-    marginTop: 2,
+  meta: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 10,
+    paddingTop: 0,
+  },
+  metaText: {
+    fontSize: 11,
+    color: AppColors.textMuted,
   },
 });

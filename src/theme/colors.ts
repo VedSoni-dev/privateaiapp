@@ -1,54 +1,43 @@
-/**
- * Private AI palette — "Claude × Apple", light and white-forward.
- *
- * Pure-white canvas (Apple clarity) with warm ivory surfaces and a Claude clay
- * accent. Key names are kept stable so the whole app re-skins from this file.
- */
 import { Platform } from 'react-native';
 
+/**
+ * shadcn/ui dark theme — zinc scale with coral accent.
+ * Mirrors the shadcn CSS variables mapped to React Native.
+ */
 export const AppColors = {
-  // Backgrounds — white canvas, warm ivory surfaces
-  primaryDark: '#FFFFFF', // main canvas
-  primaryMid: '#F6F4EE', // warm ivory section
-  surfaceCard: '#F4F1EA', // ivory cards / inputs / assistant bubbles
-  surfaceElevated: '#FFFFFF',
+  // Backgrounds — zinc-950 / zinc-900 / zinc-800
+  primaryDark:    '#09090b',   // zinc-950  — main canvas
+  primaryMid:     '#18181b',   // zinc-900  — elevated sections, panels
+  surfaceCard:    '#27272a',   // zinc-800  — cards, user bubbles, inputs
+  surfaceElevated:'#18181b',   // zinc-900
 
-  // Accents — Claude clay/coral family
-  accentCyan: '#C45B3C', // primary accent (kept name for compatibility)
-  accentViolet: '#E08A63', // lighter coral for gradients
-  accentPink: '#C45B3C',
-  accentGreen: '#3F8F6F',
-  accentOrange: '#C9893E',
+  // Accent — coral family (kept from original brand)
+  accentCyan:    '#e5734a',    // coral primary
+  accentViolet:  '#f09070',    // coral light
+  accentPink:    '#e5734a',
+  accentGreen:   '#22c55e',    // green-500
+  accentOrange:  '#f59e0b',    // amber-500
 
-  // Text — warm near-black (Apple-like), soft warm grays
-  textPrimary: '#1A1916',
-  textSecondary: '#6B665C',
-  textMuted: '#A39D91',
+  // Text — zinc scale
+  textPrimary:   '#fafafa',    // zinc-50
+  textSecondary: '#a1a1aa',    // zinc-400
+  textMuted:     '#71717a',    // zinc-500
 
   // Status
-  success: '#3F8F6F',
-  warning: '#C9893E',
-  error: '#C24A3E',
-  info: '#3B6FC9',
+  success: '#22c55e',
+  warning: '#f59e0b',
+  error:   '#ef4444',
+  info:    '#3b82f6',
 
-  // Hairlines / borders
-  border: '#E7E3D9',
-  borderStrong: '#DAD5C8',
+  // Borders — zinc-700 / zinc-600
+  border:       '#3f3f46',     // zinc-700
+  borderStrong: '#52525b',     // zinc-600
 } as const;
 
 export type AppColorsType = typeof AppColors;
 
-/**
- * Typography — a serif display face (Claude wordmark energy) paired with the
- * native system sans (SF Pro on iOS) for body text. System fonts only, so no
- * native rebuild is needed.
- */
 export const Fonts = {
   serif: Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' }),
-  sans: Platform.select({ ios: 'System', android: 'sans-serif', default: 'System' }),
-  mono: Platform.select({
-    ios: 'Menlo',
-    android: 'monospace',
-    default: 'monospace',
-  }),
+  sans:  Platform.select({ ios: 'System',  android: 'sans-serif', default: 'System' }),
+  mono:  Platform.select({ ios: 'Menlo',   android: 'monospace',  default: 'monospace' }),
 } as const;

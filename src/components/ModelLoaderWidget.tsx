@@ -3,8 +3,8 @@ import {
   View,
   Text,
   TouchableOpacity,
-  ActivityIndicator,
   StyleSheet,
+  Image,
 } from 'react-native';
 import { AppColors, Fonts } from '../theme';
 
@@ -20,71 +20,85 @@ interface ModelLoaderWidgetProps {
 }
 
 export const ModelLoaderWidget: React.FC<ModelLoaderWidgetProps> = ({
-  title,
-  subtitle,
   accentColor,
   isDownloading,
   isLoading,
   progress,
   onLoad,
 }) => {
-  const getIconEmoji = () => {
-    if (title.includes('LLM')) return '🤖';
-    if (title.includes('STT')) return '🎤';
-    if (title.includes('TTS')) return '🔊';
-    if (title.includes('Voice')) return '✨';
-    return '📦';
-  };
+  const pct = Math.round(progress);
 
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
-        <View style={[styles.iconContainer, { backgroundColor: accentColor + '20' }]}>
-          <Text style={styles.iconEmoji}>{getIconEmoji()}</Text>
+      <View style={styles.top}>
+        <View style={[styles.iconRing, { backgroundColor: accentColor + '18' }]}>
+          <Text style={styles.iconEmoji}>🛡️</Text>
         </View>
 
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.subtitle}>{subtitle}</Text>
+        <Text style={styles.headline}>
+          {isDownloading ? 'Setting up\nyour private AI…' :
+           isLoading    ? 'Loading model…' :
+                          'Ready to set up'}
+        </Text>
 
-        {(isDownloading || isLoading) && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={accentColor} />
-            <Text style={styles.loadingText}>
-              {isDownloading
-                ? `Downloading... ${Math.round(progress)}%`
-                : 'Loading model...'}
-            </Text>
-            {isDownloading && (
-              <View style={styles.progressBarContainer}>
-                <View
-                  style={[
-                    styles.progressBar,
-                    {
-                      width: `${progress}%`,
-                      backgroundColor: accentColor,
-                    },
-                  ]}
-                />
-              </View>
-            )}
+        <Text style={styles.sub}>
+          {isDownloading
+            ? `Downloading the Qwen2.5 AI model (${pct}%). This only happens once — Wi-Fi recommended.`
+            : isLoading
+            ? 'Initializing the model on-device. Nearly there.'
+            : 'Download the Qwen2.5 3B language model (~1.9 GB) to get started. This only happens once.'}
+        </Text>
+
+        {isDownloading && (
+          <View style={styles.progressWrap}>
+            <View style={styles.progressTrack}>
+              <View
+                style={[
+                  styles.progressFill,
+                  { width: `${pct}%` as any, backgroundColor: accentColor },
+                ]}
+              />
+            </View>
+            <Text style={[styles.progressPct, { color: accentColor }]}>{pct}%</Text>
+          </View>
+        )}
+
+        {isLoading && (
+          <View style={styles.progressWrap}>
+            <View style={styles.progressTrack}>
+              <View
+                style={[
+                  styles.progressFill,
+                  styles.indeterminate,
+                  { backgroundColor: accentColor },
+                ]}
+              />
+            </View>
           </View>
         )}
 
         {!isDownloading && !isLoading && (
-          <TouchableOpacity 
-            onPress={onLoad} 
-            activeOpacity={0.8}
-            style={[styles.button, { backgroundColor: accentColor }]}
+          <TouchableOpacity
+            onPress={onLoad}
+            activeOpacity={0.85}
+            style={[styles.cta, { backgroundColor: accentColor }]}
           >
-            <Text style={styles.buttonText}>Download & Load Model</Text>
+            <Text style={styles.ctaText}>Download & Start →</Text>
           </TouchableOpacity>
         )}
+      </View>
 
-        <View style={styles.infoBox}>
-          <Text style={styles.infoText}>
-            🔒 All processing happens on your device. Your data never leaves your phone.
-          </Text>
-        </View>
+      <View style={styles.features}>
+        {[
+          { icon: '🔒', text: 'Never leaves your phone' },
+          { icon: '📵', text: 'Works without internet' },
+          { icon: '🆓', text: 'No account. Free forever.' },
+        ].map(f => (
+          <View key={f.text} style={styles.featureRow}>
+            <Text style={styles.featureIcon}>{f.icon}</Text>
+            <Text style={styles.featureText}>{f.text}</Text>
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -93,96 +107,104 @@ export const ModelLoaderWidget: React.FC<ModelLoaderWidgetProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: AppColors.primaryDark,
+    paddingHorizontal: 28,
+    justifyContent: 'space-between',
+    paddingBottom: 48,
+    paddingTop: 16,
+  },
+  top: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  iconRing: {
+    width: 88,
+    height: 88,
+    borderRadius: 28,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
-  },
-  content: {
-    maxWidth: 400,
-    alignItems: 'center',
-  },
-  iconContainer: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 28,
   },
   iconEmoji: {
-    fontSize: 56,
+    fontSize: 44,
   },
-  title: {
+  headline: {
     fontFamily: Fonts.serif,
-    fontSize: 25,
+    fontSize: 36,
+    lineHeight: 44,
     color: AppColors.textPrimary,
-    marginBottom: 10,
-    textAlign: 'center',
-    letterSpacing: 0.2,
+    marginBottom: 14,
+    letterSpacing: 0.1,
   },
-  subtitle: {
-    fontSize: 14,
+  sub: {
+    fontSize: 15.5,
     color: AppColors.textSecondary,
-    textAlign: 'center',
+    lineHeight: 23,
     marginBottom: 32,
-    lineHeight: 21,
   },
-  loadingContainer: {
+  progressWrap: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 24,
+    gap: 12,
+    marginBottom: 8,
   },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 14,
-    color: AppColors.textSecondary,
-  },
-  progressBarContainer: {
-    width: 200,
-    height: 6,
+  progressTrack: {
+    flex: 1,
+    height: 7,
     backgroundColor: AppColors.surfaceCard,
-    borderRadius: 3,
-    marginTop: 12,
+    borderRadius: 4,
     overflow: 'hidden',
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: AppColors.border,
   },
-  progressBar: {
+  progressFill: {
     height: '100%',
-    borderRadius: 3,
+    borderRadius: 4,
   },
-  button: {
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 14,
-    elevation: 4,
-    shadowColor: AppColors.accentCyan,
+  indeterminate: {
+    width: '45%',
+    opacity: 0.8,
+  },
+  progressPct: {
+    fontSize: 13,
+    fontWeight: '600',
+    minWidth: 38,
+  },
+  cta: {
+    paddingVertical: 17,
+    borderRadius: 16,
+    alignItems: 'center',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.28,
-    shadowRadius: 10,
-    minWidth: 220,
-    alignItems: 'center',
-    justifyContent: 'center',
-    alignSelf: 'center',
+    shadowRadius: 12,
+    elevation: 4,
+    shadowColor: AppColors.accentCyan,
   },
-  buttonText: {
-    fontSize: 16,
+  ctaText: {
+    fontSize: 17,
     fontWeight: '700',
     color: '#FFFFFF',
-    textAlign: 'center',
+    letterSpacing: 0.2,
   },
-  infoBox: {
-    marginTop: 32,
-    padding: 16,
+  features: {
+    gap: 14,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
     backgroundColor: AppColors.surfaceCard,
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: AppColors.border,
   },
-  infoText: {
-    fontSize: 12,
-    color: AppColors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 18,
+  featureIcon: {
+    fontSize: 20,
+  },
+  featureText: {
+    fontSize: 15,
+    color: AppColors.textPrimary,
+    fontWeight: '500',
   },
 });

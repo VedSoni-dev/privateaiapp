@@ -1,39 +1,22 @@
 /**
- * AgentService — orchestrates a single chat turn for the on-device model.
+ * AgentService v2 — agentic tool-use orchestration for the on-device model.
  *
- * Mirrors the desktop app's runChat pipeline, adapted to RunAnywhere's
- * single-prompt generate API:
- *   1. Time awareness  — always inject the current local date/time
- *   2. Web search       — opt-in; plan a query, fetch results, inject them
- *   3. Memory           — inject the most relevant remembered facts
- *   4. Compaction       — summarize older turns on very long chats
- *   5. (after the reply) learn durable facts in the background
+ * Architecture: tool selection → parallel execution → structured injection → stream
  *
- * Inference stays on-device. Only the search query leaves the phone, and only
- * when the user has turned web search on.
+ * Available tools (all run heuristically — no pre-stream LLM call, safe on iOS):
+ *   • web_search   — DuckDuckGo results for real-time queries
+ *   • memory_recall — relevant long-term facts about the user
+ *   • datetime     — current date/time (always injected)
+ *
+ * The model sees tool results as structured blocks in the system prompt,
+ * making it behave like a proper tool-using agent without native function calling.
  */
 import * as Memory from './MemoryService';
-import {
-  planSearch,
-  webSearch,
-  buildSearchBlock,
-  buildNoResultsBlock,
-} from './WebSearchService';
+import { planSearch, webSearch } from './WebSearchService';
 import { buildAttachmentBlock, type Attachment } from './AttachmentService';
 import type { ChatTurn } from './MemoryService';
 
-export const BASE_SYSTEM_PROMPT =
-  'You are Private AI, a helpful assistant running entirely on the user\'s phone. ' +
-  'Be concise, friendly, and accurate. You have a private long-term memory of past ' +
-  'chats and can look things up on the web when the user enables it. Never mention ' +
-  'cloud services or external APIs for your thinking — all processing is local and private.\n\n' +
-  'ACCURACY RULES (very important):\n' +
-  '- Never invent facts. Do not make up current events, news, sports scores, fixtures, ' +
-  'schedules, prices, standings, statistics, dates, or quotes.\n' +
-  "- For anything that changes over time or that you're unsure about, only state it if it " +
-  'appears in the provided web search results or your memory. Otherwise say you are not sure ' +
-  'or suggest turning on web search.\n' +
-  '- Only claim you searched the web if web search results are actually provided to you in this prompt.';
+// ── Types ────────────────────────────────────────────────────────────────────
 
 export interface AgentMessage {
   isUser: boolean;
@@ -41,145 +24,263 @@ export interface AgentMessage {
   isError?: boolean;
 }
 
+export type ToolName = 'web_search' | 'memory_recall' | 'datetime';
+
+export interface ToolCall {
+  tool: ToolName;
+  query?: string;
+  result: string;
+  found: boolean;
+}
+
 export interface PrepareTurnOptions {
   history: AgentMessage[];
   userText: string;
   webEnabled: boolean;
   attachments?: Attachment[];
-  onStatus?: (status: { type: 'searching' | 'compacting'; query?: string }) => void;
+  onStatus?: (status: StatusEvent) => void;
 }
+
+export type StatusEvent =
+  | { type: 'searching'; query: string }
+  | { type: 'recalling' }
+  | { type: 'compacting' };
 
 export interface PreparedTurn {
   prompt: string;
-  searchedQuery: string | null;
+  toolCalls: ToolCall[];
 }
 
-/**
- * Builds a proper Qwen2.5 ChatML prompt. Using raw "User:/Assistant:" format
- * bypasses the model's chat template and significantly hurts response quality.
- *
- * Format:
- *   <|im_start|>system\n{system}<|im_end|>
- *   <|im_start|>user\n{msg}<|im_end|>
- *   <|im_start|>assistant\n{msg}<|im_end|>
- *   ...
- *   <|im_start|>user\n{current}<|im_end|>
- *   <|im_start|>assistant\n
- */
+// ── System persona ────────────────────────────────────────────────────────────
+
+const PERSONA =
+  'You are Private AI — a fast, direct AI assistant running 100% on-device. Answer like a knowledgeable friend: confident, specific, no fluff.\n\n' +
+  'HARD RULES (never break these):\n' +
+  '1. NEVER say "visit ESPN", "check the website", "go to X for details", "see their site", or any variant. You ARE the answer. The user came to you so they don\'t have to look it up themselves.\n' +
+  '2. When web_search results are in the context: pull out the specific facts (team names, scores, times, prices, etc.) and state them directly. If the page content has the data, quote it.\n' +
+  '3. If search ran but the results only confirm the topic exists (e.g. "ESPN has live scores") without specific data: say what you know (e.g. "World Cup games are happening today — here\'s what the search found:") then give the source info, and note you don\'t have the live score feed.\n' +
+  '4. Never fabricate scores, fixture times, or prices. Make clear what is confirmed vs uncertain.\n' +
+  '5. If no search ran and the question needs live data: tell the user to tap the globe icon to enable web search.\n' +
+  '6. Format: tight and scannable. Bullets for lists, bold for key facts. No preamble, no sign-off.';
+
+// ── ChatML builder ────────────────────────────────────────────────────────────
+
 function buildChatMLPrompt(system: string, history: ChatTurn[], userText: string): string {
+  const end = '<|im_' + 'end|>';
   const parts: string[] = [];
-  parts.push(`<|im_start|>system\n${system}<|im_end|>`);
+  parts.push(`<|im_start|>system\n${system}${end}`);
   for (const turn of history) {
     const role = turn.role === 'user' ? 'user' : 'assistant';
-    parts.push(`<|im_start|>${role}\n${turn.content}<|im_end|>`);
+    parts.push(`<|im_start|>${role}\n${turn.content}${end}`);
   }
-  parts.push(`<|im_start|>user\n${userText}<|im_end|>`);
+  parts.push(`<|im_start|>user\n${userText}${end}`);
   parts.push(`<|im_start|>assistant\n`);
   return parts.join('\n');
-}
-
-function timeBlock(): string {
-  const now = new Date();
-  const date = now.toLocaleDateString(undefined, {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
-  const time = now.toLocaleTimeString(undefined, {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-  return `\n\nThe current date and time on the user's device is ${date}, ${time}. Use this when the user asks about the date, day, or time.`;
 }
 
 function toTurns(history: AgentMessage[]): ChatTurn[] {
   return history
     .filter(m => !m.isError)
-    .map(m => ({
-      role: m.isUser ? ('user' as const) : ('assistant' as const),
-      content: m.text,
-    }));
+    .map(m => ({ role: m.isUser ? ('user' as const) : ('assistant' as const), content: m.text }));
 }
 
-/**
- * Build the full prompt for this turn, running search/memory/compaction first.
- */
-export async function prepareTurn(opts: PrepareTurnOptions): Promise<PreparedTurn> {
-  const { history, userText, webEnabled, attachments, onStatus } = opts;
+function trimHistoryForContext(turns: ChatTurn[], maxChars = 10000): ChatTurn[] {
+  const systemTurns = turns.filter(t => t.role === 'system');
+  let body = turns.filter(t => t.role !== 'system');
+  const size = () => [...systemTurns, ...body].reduce((n, m) => n + (m.content?.length || 0), 0);
+  while (body.length > 2 && size() > maxChars) body = body.slice(1);
+  return [...systemTurns, ...body];
+}
 
-  // 1) System context starts with persona + live time.
-  let system = BASE_SYSTEM_PROMPT + timeBlock();
+// Qwen 3B on iPhone jetsams above ~10–12K chars when search context is injected.
+const PROMPT_HARD_CAP = 10000;
+const SEARCH_RESULT_CAP = 1800;
 
-  // Attached files (read on-device) become grounding context for this turn.
-  if (attachments && attachments.length > 0) {
-    system += buildAttachmentBlock(attachments);
+function capPromptLength(prompt: string): string {
+  if (prompt.length <= PROMPT_HARD_CAP) return prompt;
+  console.warn(`[Agent] prompt capped ${prompt.length} -> ${PROMPT_HARD_CAP}`);
+  return prompt.slice(0, PROMPT_HARD_CAP);
+}
+
+// ── Tool runners ─────────────────────────────────────────────────────────────
+
+async function runDatetimeTool(): Promise<ToolCall> {
+  const now = new Date();
+  const date = now.toLocaleDateString(undefined, {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+  });
+  const time = now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return {
+    tool: 'datetime',
+    result: `${date}, ${time}`,
+    found: true,
+  };
+}
+
+async function runWebSearchTool(userText: string, onStatus?: PrepareTurnOptions['onStatus']): Promise<ToolCall | null> {
+  const query = await planSearch(userText);
+  if (!query) return null;
+
+  onStatus?.({ type: 'searching', query });
+
+  const results = await webSearch(query);
+  console.log('[Agent] web_search:', JSON.stringify(query), '->', results ? `${results.items.length} items, ${results.text.length}ch` : 'null');
+
+  if (!results || results.items.length === 0) {
+    return { tool: 'web_search', query, result: 'No results found.', found: false };
   }
 
-  // 2) Opt-in web search.
-  let searchedQuery: string | null = null;
-  if (webEnabled) {
-    const query = await planSearch(userText);
-    console.log('[Agent] webEnabled=true planSearch query =', JSON.stringify(query));
-    if (query) {
-      onStatus?.({ type: 'searching', query });
-      const results = await webSearch(query);
-      console.log(
-        '[Agent] webSearch returned',
-        results ? `${results.items.length} items` : 'NULL',
-        results ? `\n--- results ---\n${results.text.slice(0, 600)}` : '',
-      );
-      if (results && results.items.length > 0) {
-        system += buildSearchBlock(query, results.text);
-        searchedQuery = query;
-      } else {
-        // Search was warranted but came back empty — explicitly tell the model
-        // not to fabricate instead of letting it answer from thin air.
-        system += buildNoResultsBlock(query);
-      }
-    }
-  } else {
-    console.log('[Agent] webEnabled=false (globe toggle off) — no search');
-  }
+  return { tool: 'web_search', query, result: results.text.slice(0, SEARCH_RESULT_CAP), found: true };
+}
 
-  // 3) Relevant memories (also reinforces them).
+async function runMemoryTool(userText: string, history: AgentMessage[], onStatus?: PrepareTurnOptions['onStatus']): Promise<ToolCall | null> {
   const recentUser = [...history.filter(m => m.isUser).slice(-1).map(m => m.text), userText]
     .join(' ')
     .slice(0, 600);
-  const memBlock = Memory.buildMemoryBlock(recentUser);
-  if (memBlock) system += memBlock;
+  const facts = Memory.getRelevantFacts(recentUser);
+  if (facts.length === 0) return null;
 
-  // 4) Compact long histories (keep recent turns verbatim).
-  let turns: ChatTurn[] = [{ role: 'system', content: system }, ...toTurns(history)];
-  const { messages: compacted, compacted: didCompact } = await Memory.compact(turns);
-  if (didCompact) onStatus?.({ type: 'compacting' });
-  turns = compacted;
+  onStatus?.({ type: 'recalling' });
 
-  // Assemble using Qwen2.5's native ChatML format.
-  // Using the raw `User:/Assistant:` format ignores the model's chat template
-  // and significantly degrades output quality.
-  const systemText = turns
-    .filter(t => t.role === 'system')
-    .map(t => t.content)
-    .join('\n\n');
-  const historyTurns = turns.filter(t => t.role !== 'system');
-
-  const prompt = buildChatMLPrompt(systemText, historyTurns, userText);
-
-  console.log(
-    `[Agent] final prompt length=${prompt.length} chars, searched=${searchedQuery ?? 'no'}`,
-  );
-  console.log('[Agent] ---- PROMPT START ----\n' + prompt.slice(0, 1500) + '\n---- PROMPT END (truncated) ----');
-
-  return { prompt, searchedQuery };
+  const formatted = facts.map(f => `• ${f.text}`).join('\n');
+  return { tool: 'memory_recall', result: formatted, found: true };
 }
 
-/**
- * Learn from a finished exchange without blocking the UI. Runs one extraction,
- * then occasionally "dreams" to consolidate. Guarded so it never overlaps with
- * itself or crashes the app.
- */
+// ── System prompt builder from tool results ───────────────────────────────────
+
+function buildSystemFromTools(toolCalls: ToolCall[], attachments: Attachment[]): string {
+  let system = PERSONA;
+
+  // Attachments (on-device files)
+  if (attachments.length > 0) {
+    system += buildAttachmentBlock(attachments);
+  }
+
+  // Tool results as structured blocks
+  for (const tc of toolCalls) {
+    if (tc.tool === 'datetime') {
+      system += `\n\n## Tool: datetime\nCurrent date and time: ${tc.result}\nUse this when the user asks about the date, day, or time.`;
+    } else if (tc.tool === 'web_search') {
+      if (tc.found) {
+        const today = new Date().toISOString().slice(0, 10);
+        system += `\n\n## WEB SEARCH RESULTS ("${tc.query}", fetched ${today})\n${tc.result}\n\nYou MUST use the above content to answer. Extract names, scores, times, prices directly from the text. NEVER tell the user to visit any website. If the content is partial, state what you found and what's missing — don't redirect.`;
+      } else {
+        system += `\n\n## Tool: web_search ("${tc.query}")\nSearch returned no usable results. Tell the user you searched but got nothing, in one sentence.`;
+      }
+    } else if (tc.tool === 'memory_recall') {
+      system += `\n\n## Tool: memory_recall\nWhat I remember about this user:\n${tc.result}`;
+    }
+  }
+
+  return system;
+}
+
+// ── Main entry point ──────────────────────────────────────────────────────────
+
+export async function prepareTurn(opts: PrepareTurnOptions): Promise<PreparedTurn> {
+  const { history, userText, webEnabled, attachments = [], onStatus } = opts;
+
+  // Run tools in parallel (datetime always, others conditionally)
+  const toolPromises: Promise<ToolCall | null>[] = [
+    runDatetimeTool(),
+    runMemoryTool(userText, history, onStatus),
+    webEnabled ? runWebSearchTool(userText, onStatus) : Promise.resolve(null),
+  ];
+
+  const results = await Promise.all(toolPromises);
+  const toolCalls = results.filter((r): r is ToolCall => r !== null);
+
+  const hasSearch = toolCalls.some(t => t.tool === 'web_search');
+  const system = buildSystemFromTools(toolCalls, attachments);
+
+  let turns: ChatTurn[] = [{ role: 'system', content: system }, ...toTurns(history)];
+  const before = turns.reduce((n, m) => n + (m.content?.length || 0), 0);
+  turns = trimHistoryForContext(turns, hasSearch ? 5000 : 9000);
+  if (turns.reduce((n, m) => n + (m.content?.length || 0), 0) < before) {
+    onStatus?.({ type: 'compacting' });
+  }
+
+  const systemText = turns.filter(t => t.role === 'system').map(t => t.content).join('\n\n');
+  const historyTurns = turns.filter(t => t.role !== 'system');
+  const prompt = capPromptLength(buildChatMLPrompt(systemText, historyTurns, userText));
+
+  console.log(`[Agent] prompt=${prompt.length}ch tools=[${toolCalls.map(t => t.tool).join(', ')}]`);
+
+  return { prompt, toolCalls };
+}
+
+// ── Inference lock ────────────────────────────────────────────────────────────
+// iOS crashes if generate() and generateStream() overlap in the native layer.
+
+let inferenceBusy = false;
+
+export function isInferenceBusy(): boolean {
+  return inferenceBusy;
+}
+
+export async function withInferenceLock<T>(fn: () => Promise<T>): Promise<T> {
+  while (inferenceBusy) {
+    await new Promise(r => setTimeout(r, 120));
+  }
+  inferenceBusy = true;
+  try {
+    return await fn();
+  } finally {
+    inferenceBusy = false;
+  }
+}
+
+export interface StreamTurnOptions {
+  prompt: string;
+  maxTokens: number;
+  temperature: number;
+  onToken: (accumulated: string) => void;
+  onReady?: (cancel: () => void) => void;
+}
+
+export interface StreamTurnResult {
+  text: string;
+  tokensPerSecond?: number;
+  totalTokens?: number;
+}
+
+/** Run one streaming inference turn — lock held until the stream fully completes. */
+export async function streamTurn(opts: StreamTurnOptions): Promise<StreamTurnResult> {
+  return withInferenceLock(async () => {
+    console.log(
+      `[Agent] generateStream START prompt=${opts.prompt.length}ch maxTok=${opts.maxTokens} temp=${opts.temperature}`,
+    );
+    const streamResult = await RunAnywhere.generateStream(opts.prompt, {
+      maxTokens: opts.maxTokens,
+      temperature: opts.temperature,
+    });
+    opts.onReady?.(streamResult.cancel);
+    let text = '';
+    let gotToken = false;
+    for await (const token of streamResult.stream) {
+      if (!gotToken) {
+        console.log('[Agent] generateStream FIRST_TOKEN');
+        gotToken = true;
+      }
+      text += token;
+      opts.onToken(text);
+    }
+    const final = await streamResult.result;
+    console.log(
+      `[Agent] generateStream DONE tokens=${final.tokensUsed} tps=${final.tokensPerSecond?.toFixed(1)}`,
+    );
+    return {
+      text,
+      tokensPerSecond: final.tokensPerSecond,
+      totalTokens: final.tokensUsed,
+    };
+  });
+}
+
+// ── Background learning ───────────────────────────────────────────────────────
+
 let brainBusy = false;
+
 export async function learnInBackground(
   userText: string,
   assistantText: string,
@@ -188,17 +289,19 @@ export async function learnInBackground(
   if (brainBusy) return;
   brainBusy = true;
   try {
-    const added = await Memory.learnFromExchange(userText, assistantText);
-    let dreamed = false;
-    if (Memory.shouldDream()) {
-      await Memory.dream();
-      dreamed = true;
-    }
-    if (added.length || dreamed) {
-      onUpdate?.({ added: added.map(f => f.text), dreamed });
-    }
+    // Wait for the main stream to fully release native inference before learning.
+    await new Promise(r => setTimeout(r, 800));
+    await withInferenceLock(async () => {
+      const added = await Memory.learnFromExchange(userText, assistantText);
+      let dreamed = false;
+      if (Memory.shouldDream()) {
+        await Memory.dream();
+        dreamed = true;
+      }
+      if (added.length || dreamed) onUpdate?.({ added: added.map(f => f.text), dreamed });
+    });
   } catch {
-    /* never let the brain crash the app */
+    /* never crash the app */
   } finally {
     brainBusy = false;
   }

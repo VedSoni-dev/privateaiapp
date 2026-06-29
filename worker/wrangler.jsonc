@@ -1,0 +1,8 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "private-ai-search",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-29",
+  "compatibility_flags": ["nodejs_compat"]
+  // BRAVE_KEY is stored as a secret: npx wrangler secret put BRAVE_KEY
+}

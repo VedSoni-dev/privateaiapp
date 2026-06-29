@@ -1,56 +1,64 @@
 import 'react-native-gesture-handler';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator, TransitionPresets } from '@react-navigation/stack';
-import { StatusBar, StyleSheet } from 'react-native';
+import { StatusBar, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { RunAnywhere, SDKEnvironment } from '@runanywhere/core';
 import { LlamaCPP } from '@runanywhere/llamacpp';
 import { ONNX } from '@runanywhere/onnx';
 import { ModelServiceProvider, registerDefaultModels } from './services/ModelService';
 import * as Memory from './services/MemoryService';
+import { initUsage } from './services/UsageService';
 import { AppColors, Fonts } from './theme';
 import {
+  OnboardingScreen,
   ChatScreen,
   SpeechToTextScreen,
   TextToSpeechScreen,
   VoicePipelineScreen,
 } from './screens';
+import { checkOnboardingDone } from './screens/OnboardingScreen';
 import { RootStackParamList } from './navigation/types';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
 const App: React.FC = () => {
+  const [initialRoute, setInitialRoute] = useState<'Onboarding' | 'Chat' | null>(null);
+
   useEffect(() => {
-    const initializeSDK = async () => {
-      try {
-        // Load the on-device long-term memory store (local file, no network).
-        Memory.init().catch(() => {});
-
-        await RunAnywhere.initialize({
-          environment: SDKEnvironment.Development,
-        });
-
-        LlamaCPP.register();
-        ONNX.register();
-        await registerDefaultModels();
-
-        console.log('Private AI: SDK initialized');
-      } catch (error) {
-        console.error('Private AI: SDK initialization failed:', error);
-      }
+    const boot = async () => {
+      const [done] = await Promise.all([
+        checkOnboardingDone(),
+        (async () => {
+          try {
+            Memory.init().catch(() => {});
+            initUsage().catch(() => {});
+            await RunAnywhere.initialize({ environment: SDKEnvironment.Development });
+            LlamaCPP.register();
+            ONNX.register();
+            await registerDefaultModels();
+          } catch (error) {
+            console.error('Private AI: SDK initialization failed:', error);
+          }
+        })(),
+      ]);
+      setInitialRoute(done ? 'Chat' : 'Onboarding');
     };
-
-    initializeSDK();
+    boot();
   }, []);
+
+  if (!initialRoute) {
+    return <View style={{ flex: 1, backgroundColor: AppColors.primaryDark }} />;
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ModelServiceProvider>
-        <StatusBar barStyle="dark-content" backgroundColor={AppColors.primaryDark} />
+        <StatusBar barStyle="light-content" backgroundColor={AppColors.primaryDark} />
         <NavigationContainer>
           <Stack.Navigator
-            initialRouteName="Chat"
+            initialRouteName={initialRoute}
             screenOptions={{
               headerStyle: {
                 backgroundColor: AppColors.primaryDark,
@@ -71,6 +79,11 @@ const App: React.FC = () => {
               ...TransitionPresets.SlideFromRightIOS,
             }}
           >
+            <Stack.Screen
+              name="Onboarding"
+              component={OnboardingScreen}
+              options={{ headerShown: false }}
+            />
             <Stack.Screen
               name="Chat"
               component={ChatScreen}

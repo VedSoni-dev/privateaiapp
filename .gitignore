@@ -100,3 +100,4 @@ coverage/
 .expo
 dist/
 web-build/
+.gstack/

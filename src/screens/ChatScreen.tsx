@@ -17,6 +17,7 @@ import {
   Dimensions,
   Pressable,
   ScrollView,
+  Image,
 } from 'react-native';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import LinearGradient from 'react-native-linear-gradient';
@@ -25,14 +26,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RunAnywhere } from '@runanywhere/core';
 import { AppColors, Fonts } from '../theme';
 import { useModelService } from '../services/ModelService';
-import { ChatMessageBubble, ChatMessage, ModelLoaderWidget } from '../components';
+import { ChatMessageBubble, ChatMessage, ModelLoaderWidget, ThinkingIndicator, PaywallModal } from '../components';
 import { RootStackParamList } from '../navigation/types';
-import { prepareTurn, learnInBackground } from '../services/AgentService';
-import * as Haptics from 'expo-haptics';
+import { prepareTurn, learnInBackground, streamTurn } from '../services/AgentService';
+import * as SafeHaptics from '../services/HapticsService';
 import { pickAndExtract, type Attachment } from '../services/AttachmentService';
 import * as Memory from '../services/MemoryService';
 import * as ChatStorage from '../services/ChatStorageService';
 import type { ChatSession } from '../services/ChatStorageService';
+import { canSendMessage, recordMessage, getUsage, FREE_DAILY_LIMIT, initUsage } from '../services/UsageService';
 
 type ChatScreenProps = {
   navigation: StackNavigationProp<RootStackParamList, 'Chat'>;
@@ -46,9 +48,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
+  const [thinkingLabel, setThinkingLabel] = useState('Thinking');
   const [currentResponse, setCurrentResponse] = useState('');
   const [webEnabled, setWebEnabled] = useState(true);
   const [statusText, setStatusText] = useState('');
+
+  const [showPaywall, setShowPaywall] = useState(false);
+  const [usage, setUsage] = useState(getUsage());
   const [menuOpen, setMenuOpen] = useState(false);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isAttaching, setIsAttaching] = useState(false);
@@ -135,6 +142,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
     setAttachments(prev => prev.filter(a => a.id !== id));
   };
 
+  useEffect(() => {
+    initUsage().then(() => setUsage(getUsage()));
+  }, []);
+
   // Load session list and restore the most recent session on mount.
   useEffect(() => {
     ChatStorage.loadSessions().then(async saved => {
@@ -157,7 +168,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
 
   useEffect(() => {
     if (modelService.isLLMLoaded) {
-      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      void SafeHaptics.notificationSuccess();
     }
   }, [modelService.isLLMLoaded]);
 
@@ -170,11 +181,16 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
   }, [messages, currentResponse]);
 
   const handleSend = async (overrideText?: string) => {
-    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    void SafeHaptics.impactLight();
     const typed = (overrideText ?? inputText).trim();
     const turnAttachments = overrideText ? [] : attachments;
     const hasAttach = turnAttachments.length > 0;
     if ((!typed && !hasAttach) || isGenerating) return;
+
+    if (!canSendMessage()) {
+      setShowPaywall(true);
+      return;
+    }
 
     const effectiveUserText =
       typed || 'Please read the attached file(s) and summarize the key points.';
@@ -194,47 +210,61 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
     setInputText('');
     setAttachments([]);
     setIsGenerating(true);
+    setIsThinking(true);
+    setThinkingLabel(hasAttach ? 'Reading files' : 'Thinking');
     setCurrentResponse('');
-    setStatusText(hasAttach ? 'Reading attachments…' : webEnabled ? 'Thinking…' : '');
+    setStatusText('');
 
     try {
-      const { prompt, searchedQuery } = await prepareTurn({
+      const { prompt, toolCalls } = await prepareTurn({
         history,
         userText: effectiveUserText,
         webEnabled,
         attachments: turnAttachments,
         onStatus: status => {
           if (status.type === 'searching') {
-            setStatusText(`Searching the web for "${status.query}"…`);
+            setThinkingLabel(`Searching "${status.query}"`);
+          } else if (status.type === 'recalling') {
+            setThinkingLabel('Recalling memories');
           } else if (status.type === 'compacting') {
-            setStatusText('Summarizing earlier messages…');
+            setThinkingLabel('Summarizing context');
           }
         },
       });
 
-      setStatusText('');
-      const streamResult = await RunAnywhere.generateStream(prompt, {
-        maxTokens: searchedQuery ? 1024 : 1536,
-        temperature: searchedQuery ? 0.3 : 0.7,
-      });
+      setIsThinking(false);
+      void recordMessage().then(() => setUsage(getUsage()));
+      const hasSearch = toolCalls.some(t => t.tool === 'web_search' && t.found);
+      console.log(
+        `[Chat] streaming hasSearch=${hasSearch} webEnabled=${webEnabled} history=${history.length}`,
+      );
 
-      streamCancelRef.current = streamResult.cancel;
       responseRef.current = '';
+      const streamFinal = await streamTurn({
+        prompt,
+        maxTokens: hasSearch ? 384 : 768,
+        temperature: hasSearch ? 0.3 : 0.7,
+        onReady: cancel => {
+          streamCancelRef.current = cancel;
+        },
+        onToken: accumulated => {
+          responseRef.current = accumulated;
+          setCurrentResponse(accumulated);
+        },
+      });
+      streamCancelRef.current = null;
 
-      for await (const token of streamResult.stream) {
-        responseRef.current += token;
-        setCurrentResponse(responseRef.current);
-      }
-
-      const finalResult = await streamResult.result;
-      const replyText = responseRef.current;
+      const replyText = streamFinal.text;
 
       const assistantMessage: ChatMessage = {
         text: replyText,
         isUser: false,
         timestamp: new Date(),
-        tokensPerSecond: finalResult.tokensPerSecond,
-        totalTokens: finalResult.tokensUsed,
+        tokensPerSecond: streamFinal.tokensPerSecond,
+        totalTokens: streamFinal.totalTokens,
+        toolCalls: toolCalls
+          .filter(tc => tc.tool !== 'datetime')
+          .map(tc => ({ tool: tc.tool, query: tc.query, found: tc.found })),
       };
       setMessages(prev => {
         const next = [...prev, assistantMessage];
@@ -267,11 +297,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
       setMessages(prev => [...prev, errorMessage]);
       setCurrentResponse('');
       setStatusText('');
+      setIsThinking(false);
       setIsGenerating(false);
     }
   };
 
   const handleStop = () => {
+    setIsThinking(false);
     if (streamCancelRef.current) {
       streamCancelRef.current();
       if (responseRef.current) {
@@ -364,13 +396,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
     navigation.navigate(screen);
   };
 
-  const renderSuggestionChip = (text: string) => (
+  const renderSuggestionChip = (icon: string, text: string) => (
     <TouchableOpacity
       key={text}
       style={styles.suggestionChip}
-      onPress={() => { void Haptics.selectionAsync(); handleSend(text); }}
+      onPress={() => { void SafeHaptics.selection(); handleSend(text); }}
       activeOpacity={0.7}
     >
+      <Text style={styles.suggestionIcon}>{icon}</Text>
       <Text style={styles.suggestionText}>{text}</Text>
       <Text style={styles.suggestionArrow}>→</Text>
     </TouchableOpacity>
@@ -379,17 +412,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
   if (!modelService.isLLMLoaded) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="dark-content" />
+        <StatusBar barStyle="light-content" />
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <LinearGradient
-              colors={[AppColors.accentViolet, AppColors.accentCyan]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.logoBadge}
-            >
-              <Text style={styles.logoText}>✦</Text>
-            </LinearGradient>
+            <Image
+              source={require('../../assets/shield-48.png')}
+              style={styles.logoImage}
+              accessibilityLabel="Private AI"
+            />
             <View>
               <Text style={styles.headerTitle}>Private AI</Text>
               <Text style={styles.headerSubtitle}>100% on your device</Text>
@@ -412,22 +442,22 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle="light-content" />
       <PanGestureHandler activeOffsetX={[-20, 20]} onHandlerStateChange={onEdgePan}>
         <View style={styles.flex1}>
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <LinearGradient
-            colors={[AppColors.accentViolet, AppColors.accentCyan]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.logoBadge}
-          >
-            <Text style={styles.logoText}>✦</Text>
-          </LinearGradient>
+          <Image
+            source={require('../../assets/shield-48.png')}
+            style={styles.logoImage}
+            accessibilityLabel="Private AI"
+          />
           <View>
             <Text style={styles.headerTitle}>Private AI</Text>
-            <Text style={styles.headerSubtitle}>On-device · Offline · Private</Text>
+            <View style={styles.headerBadgeRow}>
+              <View style={styles.onlineDot} />
+              <Text style={styles.headerSubtitle}>On-device · Private</Text>
+            </View>
           </View>
         </View>
         <TouchableOpacity onPress={openMenu} style={styles.menuButton} accessibilityLabel="Settings">
@@ -446,23 +476,17 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
       >
         {messages.length === 0 ? (
           <View style={styles.emptyState}>
-            <LinearGradient
-              colors={[AppColors.accentViolet, AppColors.accentCyan]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.emptyMark}
-            >
-              <Text style={styles.emptyMarkText}>✦</Text>
-            </LinearGradient>
-            <Text style={styles.emptyTitle}>How can I help you?</Text>
-            <Text style={styles.emptySubtitle}>
-              Your conversations never leave this phone.{'\n'}
-              No account. No cloud. Just you and your AI.
-            </Text>
+            <Image
+              source={require('../../assets/shield-96.png')}
+              style={styles.emptyMarkImage}
+              accessibilityLabel="Private AI"
+            />
+            <Text style={styles.emptyTitle}>What can I{'\n'}help you with?</Text>
             <View style={styles.suggestionsContainer}>
-              {renderSuggestionChip('Explain quantum computing simply')}
-              {renderSuggestionChip('Help me plan my day')}
-              {renderSuggestionChip('Write a short poem about privacy')}
+              {renderSuggestionChip('✍️', 'Write a cover letter for a software role')}
+              {renderSuggestionChip('📰', "What's in the news today?")}
+              {renderSuggestionChip('💡', 'Explain how transformers work in AI')}
+              {renderSuggestionChip('🗓️', 'Help me plan my week')}
             </View>
           </View>
         ) : (
@@ -470,12 +494,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
             ref={flatListRef}
             data={[
               ...messages,
-              ...(isGenerating
-                ? [{ text: currentResponse || '...', isUser: false, timestamp: new Date() }]
+              ...(isThinking
+                ? [{ text: '__thinking__', isUser: false, timestamp: new Date() }]
+                : isGenerating
+                ? [{ text: currentResponse || '', isUser: false, timestamp: new Date() }]
                 : []),
             ]}
-            renderItem={renderMessageItem}
-            keyExtractor={(_, index) => index.toString()}
+            renderItem={({ item, index }) =>
+              item.text === '__thinking__'
+                ? <ThinkingIndicator key="thinking" label={thinkingLabel} />
+                : renderMessageItem({ item, index })
+            }
+            keyExtractor={(item, index) => item.text === '__thinking__' ? 'thinking' : index.toString()}
             contentContainerStyle={styles.messageList}
             showsVerticalScrollIndicator={false}
             removeClippedSubviews
@@ -486,11 +516,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
         )}
 
         <View style={styles.inputContainer}>
-          {(statusText || webEnabled) && (
+          {!!statusText && (
             <View style={styles.statusRow}>
-              <Text style={styles.statusText} numberOfLines={1}>
-                {statusText || '🌐 Web search on — recent info enabled'}
-              </Text>
+              <View style={styles.statusDot} />
+              <Text style={styles.statusText} numberOfLines={1}>{statusText}</Text>
             </View>
           )}
           {attachments.length > 0 && (
@@ -555,9 +584,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
               </TouchableOpacity>
             )}
           </View>
-          <Text style={styles.disclaimer}>
-            Private AI runs locally on your device. Responses may be inaccurate.
-          </Text>
+          <View style={styles.disclaimerRow}>
+            <Text style={styles.disclaimer}>
+              {usage.isPro
+                ? '✦ Pro · Unlimited'
+                : `${usage.remaining} of ${usage.limit} messages left today`}
+            </Text>
+            {!usage.isPro && (
+              <TouchableOpacity onPress={() => setShowPaywall(true)}>
+                <Text style={styles.upgradeLink}>Upgrade →</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </KeyboardAvoidingView>
         </View>
@@ -569,6 +607,17 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
       >
         <Pressable style={styles.flex1} onPress={closeMenu} />
       </Animated.View>
+
+      <PaywallModal
+        visible={showPaywall}
+        onClose={() => setShowPaywall(false)}
+        onSubscribe={() => {
+          // TODO: wire react-native-iap in next native build
+          Alert.alert('Coming soon', 'In-app purchase will be available in the next update.');
+        }}
+        messagesUsed={usage.messages}
+        limit={usage.limit}
+      />
 
       <Animated.View style={[styles.panel, { transform: [{ translateX: panelX }] }]}>
         <SafeAreaView style={styles.flex1}>
@@ -602,7 +651,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
             <TouchableOpacity
               style={[styles.panelRow, styles.panelRowAccent]}
               onPress={() => {
-                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                void SafeHaptics.impactLight();
                 handleNewChat();
                 closeMenu();
               }}
@@ -638,7 +687,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
                 showMemory();
               }}
             >
-              <Text style={styles.panelRowIcon}>✦</Text>
+              <Text style={styles.panelRowIcon}>🛡️</Text>
               <Text style={styles.panelRowText}>What AI remembers</Text>
             </TouchableOpacity>
 
@@ -659,9 +708,29 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
               <Text style={styles.panelChevron}>›</Text>
             </TouchableOpacity>
 
+            {!usage.isPro && (
+              <TouchableOpacity
+                style={[styles.panelRow, styles.upgradeRow]}
+                onPress={() => { closeMenu(); setShowPaywall(true); }}
+              >
+                <Text style={styles.panelRowIcon}>✦</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.panelRowText, { fontWeight: '700', color: AppColors.accentCyan }]}>
+                    Upgrade to Pro
+                  </Text>
+                  <Text style={styles.panelRowSub}>
+                    Unlimited messages · Cloud AI coming soon
+                  </Text>
+                </View>
+                <Text style={[styles.panelChevron, { color: AppColors.accentCyan }]}>›</Text>
+              </TouchableOpacity>
+            )}
+
             <View style={styles.panelFooter}>
               <Text style={styles.panelFooterText}>
-                🔒 Everything runs on-device. No account, no cloud inference.
+                {usage.isPro
+                  ? '✦ Pro — unlimited messages. Thank you!'
+                  : `Free plan · ${usage.remaining}/${usage.limit} messages left today`}
               </Text>
             </View>
           </ScrollView>
@@ -672,438 +741,182 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: AppColors.primaryDark,
-  },
+  safeArea:  { flex: 1, backgroundColor: AppColors.primaryDark },
+  flex1:     { flex: 1 },
+  container: { flex: 1, backgroundColor: AppColors.primaryDark },
+
+  // ── Header ───────────────────────────────────────────────────────
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: AppColors.border,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: AppColors.border,
+    backgroundColor: AppColors.primaryDark,
   },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 11,
-  },
-  logoBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: AppColors.accentCyan,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.28,
-    shadowRadius: 7,
-    elevation: 3,
-  },
-  logoText: {
-    fontSize: 17,
-    color: '#FFFFFF',
-    fontWeight: '600',
-    marginTop: -1,
-  },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  logoImage:  { width: 32, height: 32, borderRadius: 8 },
   headerTitle: {
-    fontFamily: Fonts.serif,
-    fontSize: 20,
-    color: AppColors.textPrimary,
-    letterSpacing: 0.2,
+    fontFamily: Fonts.serif, fontSize: 17,
+    color: AppColors.textPrimary, letterSpacing: 0.1,
   },
-  headerSubtitle: {
-    fontSize: 11.5,
-    color: AppColors.textMuted,
-    marginTop: 1,
-    letterSpacing: 0.2,
-  },
+  headerBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
+  onlineDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: AppColors.accentGreen },
+  headerSubtitle: { fontSize: 11, color: AppColors.textMuted, letterSpacing: 0.1 },
   menuButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 34, height: 34, borderRadius: 8,
     backgroundColor: AppColors.surfaceCard,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: AppColors.border,
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1, borderColor: AppColors.border,
   },
-  menuGlyph: {
-    alignItems: 'flex-end',
-    gap: 3,
-  },
-  menuLine: {
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: AppColors.textSecondary,
-  },
-  flex1: {
-    flex: 1,
-  },
-  container: {
-    flex: 1,
-    backgroundColor: AppColors.primaryDark,
-  },
-  messageList: {
-    paddingVertical: 18,
-  },
+  menuGlyph: { alignItems: 'flex-end', gap: 3 },
+  menuLine:  { height: 1.5, borderRadius: 1, backgroundColor: AppColors.textSecondary },
+
+  // ── Message list ─────────────────────────────────────────────────
+  messageList: { paddingTop: 16, paddingBottom: 8 },
+
+  // ── Empty state ──────────────────────────────────────────────────
   emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 28,
-    paddingBottom: 40,
+    flex: 1, justifyContent: 'flex-end',
+    paddingHorizontal: 20, paddingBottom: 24,
   },
-  emptyMark: {
-    width: 58,
-    height: 58,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 22,
-    shadowColor: AppColors.accentCyan,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 14,
-    elevation: 5,
-  },
-  emptyMarkText: {
-    fontSize: 26,
-    color: '#FFFFFF',
-  },
+  emptyMarkImage: { width: 48, height: 48, borderRadius: 12, marginBottom: 20 },
   emptyTitle: {
-    fontFamily: Fonts.serif,
-    fontSize: 30,
-    color: AppColors.textPrimary,
-    marginBottom: 10,
-    textAlign: 'center',
-    letterSpacing: 0.2,
+    fontFamily: Fonts.serif, fontSize: 32, lineHeight: 40,
+    color: AppColors.textPrimary, marginBottom: 24, letterSpacing: 0.1,
   },
-  emptySubtitle: {
-    fontSize: 14.5,
-    color: AppColors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 30,
-  },
-  suggestionsContainer: {
-    width: '100%',
-    gap: 10,
-  },
+  suggestionsContainer: { width: '100%', gap: 8 },
   suggestionChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 18,
-    paddingVertical: 15,
-    backgroundColor: AppColors.surfaceElevated,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: AppColors.border,
-    shadowColor: '#1A1916',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 14, paddingVertical: 13,
+    backgroundColor: AppColors.surfaceCard,
+    borderRadius: 10, borderWidth: 1, borderColor: AppColors.border,
   },
-  suggestionText: {
-    fontSize: 14.5,
-    color: AppColors.textPrimary,
-    flex: 1,
-  },
-  suggestionArrow: {
-    fontSize: 15,
-    color: AppColors.accentCyan,
-    marginLeft: 12,
-  },
+  suggestionIcon:  { fontSize: 15, marginRight: 11 },
+  suggestionText:  { fontSize: 14, color: AppColors.textSecondary, flex: 1, lineHeight: 20 },
+  suggestionArrow: { fontSize: 13, color: AppColors.textMuted, marginLeft: 8 },
+
+  // ── Input area ───────────────────────────────────────────────────
   inputContainer: {
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 12,
+    paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10,
     backgroundColor: AppColors.primaryDark,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: AppColors.border,
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 9,
+    borderTopWidth: 1, borderTopColor: AppColors.border,
   },
   statusRow: {
-    paddingHorizontal: 6,
-    paddingBottom: 9,
-    flexDirection: 'row',
-    alignItems: 'center',
+    paddingHorizontal: 4, paddingBottom: 8,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
   },
-  statusText: {
-    fontSize: 12,
-    color: AppColors.accentCyan,
-    fontWeight: '500',
-  },
-  globeButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+  statusDot:  { width: 5, height: 5, borderRadius: 3, backgroundColor: AppColors.accentCyan },
+  statusText: { fontSize: 12, color: AppColors.accentCyan, fontWeight: '500' },
+  attachRow:  { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingBottom: 8, paddingHorizontal: 2 },
+  attachChip: {
+    flexDirection: 'row', alignItems: 'center',
+    maxWidth: 220, paddingLeft: 10, paddingRight: 8, paddingVertical: 6,
     backgroundColor: AppColors.surfaceCard,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: AppColors.border,
+    borderRadius: 8, borderWidth: 1, borderColor: AppColors.border, gap: 6,
   },
-  globeButtonActive: {
-    backgroundColor: AppColors.accentCyan + '1A',
-    borderColor: AppColors.accentCyan,
-  },
-  globeIcon: {
-    fontSize: 18,
+  attachChipError: { borderColor: AppColors.error + '44' },
+  attachChipIcon:  { fontSize: 13 },
+  attachChipName:  { flexShrink: 1, fontSize: 12.5, color: AppColors.textPrimary },
+  attachChipX:     { fontSize: 11, color: AppColors.textMuted, paddingHorizontal: 2 },
+
+  // Compound input row — wraps input + action buttons
+  inputWrapper: {
+    flexDirection: 'row', alignItems: 'flex-end',
+    backgroundColor: AppColors.surfaceCard,
+    borderRadius: 14, borderWidth: 1, borderColor: AppColors.border,
+    paddingHorizontal: 4, paddingVertical: 4, gap: 2,
   },
   attachButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: AppColors.surfaceCard,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: AppColors.border,
+    width: 36, height: 36, borderRadius: 8,
+    justifyContent: 'center', alignItems: 'center',
   },
-  attachIcon: {
-    fontSize: 24,
-    color: AppColors.textSecondary,
-    marginTop: -2,
+  attachIcon: { fontSize: 20, color: AppColors.textMuted },
+  globeButton: {
+    width: 36, height: 36, borderRadius: 8,
+    justifyContent: 'center', alignItems: 'center',
   },
-  attachRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingHorizontal: 4,
-    paddingBottom: 10,
-  },
-  attachChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    maxWidth: 220,
-    paddingLeft: 10,
-    paddingRight: 8,
-    paddingVertical: 7,
-    backgroundColor: AppColors.surfaceCard,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: AppColors.borderStrong,
-    gap: 7,
-  },
-  attachChipError: {
-    backgroundColor: AppColors.error + '12',
-    borderColor: AppColors.error + '55',
-  },
-  attachChipIcon: {
-    fontSize: 14,
-  },
-  attachChipName: {
-    flexShrink: 1,
-    fontSize: 13,
-    color: AppColors.textPrimary,
-  },
-  attachChipX: {
-    fontSize: 12,
-    color: AppColors.textMuted,
-    paddingHorizontal: 2,
-  },
+  globeButtonActive: { backgroundColor: AppColors.accentCyan + '18' },
+  globeIcon: { fontSize: 17 },
   input: {
     flex: 1,
-    backgroundColor: AppColors.surfaceCard,
-    borderRadius: 22,
-    paddingHorizontal: 18,
-    paddingTop: Platform.OS === 'ios' ? 11 : 8,
-    paddingBottom: Platform.OS === 'ios' ? 11 : 8,
-    fontSize: 16,
-    color: AppColors.textPrimary,
-    maxHeight: 120,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: AppColors.borderStrong,
+    paddingHorizontal: 8,
+    paddingTop: Platform.OS === 'ios' ? 9 : 7,
+    paddingBottom: Platform.OS === 'ios' ? 9 : 7,
+    fontSize: 15.5, color: AppColors.textPrimary,
+    maxHeight: 130, minHeight: 36,
   },
   sendButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: AppColors.accentCyan,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 3,
+    width: 36, height: 36, borderRadius: 8,
+    backgroundColor: AppColors.accentCyan,
+    justifyContent: 'center', alignItems: 'center',
   },
-  sendButtonDisabled: {
-    opacity: 0.35,
-    shadowOpacity: 0,
-  },
-  sendIcon: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
+  sendButtonDisabled: { opacity: 0.3 },
+  sendIcon: { fontSize: 17, fontWeight: '700', color: '#fff' },
   stopButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: AppColors.error + '14',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: AppColors.error + '55',
-    justifyContent: 'center',
-    alignItems: 'center',
+    width: 36, height: 36, borderRadius: 8,
+    backgroundColor: AppColors.surfaceCard,
+    borderWidth: 1, borderColor: AppColors.border,
+    justifyContent: 'center', alignItems: 'center',
   },
-  stopIconText: {
-    fontSize: 16,
-    color: AppColors.error,
+  stopIconText: { fontSize: 14, color: AppColors.textSecondary },
+
+  disclaimerRow: {
+    flexDirection: 'row', justifyContent: 'center',
+    alignItems: 'center', gap: 8, marginTop: 7,
   },
-  disclaimer: {
-    fontSize: 11,
-    color: AppColors.textMuted,
-    textAlign: 'center',
-    marginTop: 11,
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(26,25,22,0.32)',
-  },
+  disclaimer:   { fontSize: 11, color: AppColors.textMuted },
+  upgradeLink:  { fontSize: 11, color: AppColors.accentCyan, fontWeight: '600' },
+
+  // ── Backdrop + panel ─────────────────────────────────────────────
+  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
   panel: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    right: 0,
+    position: 'absolute', top: 0, bottom: 0, right: 0,
     width: PANEL_WIDTH,
-    backgroundColor: AppColors.primaryDark,
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderLeftColor: AppColors.border,
-    shadowColor: '#1A1916',
-    shadowOffset: { width: -4, height: 0 },
-    shadowOpacity: 0.12,
-    shadowRadius: 18,
-    elevation: 16,
+    backgroundColor: AppColors.primaryMid,
+    borderLeftWidth: 1, borderLeftColor: AppColors.border,
+    shadowColor: '#000', shadowOffset: { width: -8, height: 0 },
+    shadowOpacity: 0.4, shadowRadius: 24, elevation: 20,
   },
-  panelContent: {
-    paddingHorizontal: 18,
-    paddingBottom: 32,
-  },
-  panelHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 8,
-    paddingBottom: 18,
-  },
-  panelTitle: {
-    fontFamily: Fonts.serif,
-    fontSize: 26,
-    color: AppColors.textPrimary,
-    letterSpacing: 0.2,
-  },
-  panelClose: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: AppColors.surfaceCard,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: AppColors.border,
-  },
-  panelCloseText: {
-    fontSize: 14,
-    color: AppColors.textSecondary,
-    fontWeight: '600',
-  },
+  panelContent:  { paddingHorizontal: 16, paddingBottom: 36 },
+  panelHeader:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, paddingBottom: 16 },
+  panelTitle:    { fontFamily: Fonts.serif, fontSize: 22, color: AppColors.textPrimary },
+  panelClose:    { width: 30, height: 30, borderRadius: 6, backgroundColor: AppColors.surfaceCard, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: AppColors.border },
+  panelCloseText: { fontSize: 13, color: AppColors.textSecondary, fontWeight: '600' },
   panelCard: {
-    backgroundColor: AppColors.surfaceCard,
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: AppColors.border,
-    padding: 16,
-    marginBottom: 8,
+    backgroundColor: AppColors.surfaceCard, borderRadius: 12,
+    borderWidth: 1, borderColor: AppColors.border,
+    padding: 14, marginBottom: 8,
   },
-  switchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  switchTextWrap: {
-    flex: 1,
-  },
-  switchLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: AppColors.textPrimary,
-    marginBottom: 3,
-  },
-  switchSub: {
-    fontSize: 12.5,
-    color: AppColors.textSecondary,
-    lineHeight: 17,
-  },
-  panelSection: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: AppColors.textMuted,
-    letterSpacing: 0.8,
-    marginTop: 22,
-    marginBottom: 8,
-    marginLeft: 4,
-  },
+  switchRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  switchTextWrap: { flex: 1 },
+  switchLabel:   { fontSize: 15, fontWeight: '600', color: AppColors.textPrimary, marginBottom: 2 },
+  switchSub:     { fontSize: 12, color: AppColors.textMuted, lineHeight: 16 },
+  panelSection:  { fontSize: 11, fontWeight: '700', color: AppColors.textMuted, letterSpacing: 1, marginTop: 20, marginBottom: 6, marginLeft: 2 },
   panelRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    backgroundColor: AppColors.surfaceElevated,
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: AppColors.border,
-    marginBottom: 8,
-  },
-  panelRowAccent: {
-    borderColor: AppColors.accentCyan + '55',
-    backgroundColor: AppColors.accentCyan + '0C',
-  },
-  panelRowActive: {
-    borderColor: AppColors.accentCyan,
-    backgroundColor: AppColors.accentCyan + '14',
-  },
-  panelRowSub: {
-    fontSize: 11.5,
-    color: AppColors.textMuted,
-    marginTop: 2,
-  },
-  panelRowIcon: {
-    fontSize: 16,
-    width: 26,
-    color: AppColors.accentCyan,
-  },
-  panelRowText: {
-    flex: 1,
-    fontSize: 15.5,
-    color: AppColors.textPrimary,
-  },
-  panelChevron: {
-    fontSize: 20,
-    color: AppColors.textMuted,
-    marginLeft: 8,
-  },
-  panelFooter: {
-    marginTop: 24,
-    padding: 14,
+    flexDirection: 'row', alignItems: 'center',
+    paddingVertical: 12, paddingHorizontal: 12,
     backgroundColor: AppColors.surfaceCard,
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: AppColors.border,
+    borderRadius: 10, borderWidth: 1, borderColor: AppColors.border, marginBottom: 6,
   },
-  panelFooterText: {
-    fontSize: 12,
-    color: AppColors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 18,
+  panelRowAccent: { borderColor: AppColors.accentCyan + '33', backgroundColor: AppColors.accentCyan + '08' },
+  panelRowActive: { borderColor: AppColors.accentCyan + '66', backgroundColor: AppColors.accentCyan + '12' },
+  panelRowSub:    { fontSize: 11, color: AppColors.textMuted, marginTop: 1 },
+  panelRowIcon:   { fontSize: 15, width: 24 },
+  panelRowText:   { flex: 1, fontSize: 14.5, color: AppColors.textPrimary },
+  panelChevron:   { fontSize: 18, color: AppColors.textMuted, marginLeft: 6 },
+  upgradeRow:     { borderColor: AppColors.accentCyan + '44', backgroundColor: AppColors.accentCyan + '0A', marginBottom: 6 },
+
+  apiBadge:      { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  apiBadgeOn:    { backgroundColor: AppColors.accentGreen + '22' },
+  apiBadgeOff:   { backgroundColor: AppColors.accentOrange + '22' },
+  apiBadgeText:  { fontSize: 9, fontWeight: '800', color: AppColors.textMuted, letterSpacing: 0.6 },
+  apiInputRow:   { flexDirection: 'row', gap: 8, marginTop: 10 },
+  apiInput: {
+    flex: 1, backgroundColor: AppColors.primaryDark, borderRadius: 8,
+    paddingHorizontal: 11, paddingVertical: 8, fontSize: 13,
+    color: AppColors.textPrimary, borderWidth: 1, borderColor: AppColors.border,
   },
+  apiSaveBtn:     { backgroundColor: AppColors.accentCyan, borderRadius: 8, paddingHorizontal: 14, justifyContent: 'center' },
+  apiSaveBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  panelFooter:    { marginTop: 20, padding: 12, backgroundColor: AppColors.surfaceCard, borderRadius: 10, borderWidth: 1, borderColor: AppColors.border },
+  panelFooterText: { fontSize: 11.5, color: AppColors.textMuted, textAlign: 'center', lineHeight: 17 },
 });

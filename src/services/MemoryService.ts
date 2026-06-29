@@ -166,6 +166,25 @@ export function count(): number {
   return store.facts.length;
 }
 
+/** Return the top relevant facts for a context string — used by the agentic tool layer. */
+export function getRelevantFacts(contextText = ''): Array<MemoryFact> {
+  if (store.facts.length === 0) return [];
+  const now = Date.now();
+  const ctxWords = words(contextText || '');
+  const scored = store.facts.map(f => ({
+    f,
+    score: effective(f, now) + relevance(f, ctxWords) * 1.5,
+  }));
+  scored.sort((a, b) => b.score - a.score);
+  const chosen = scored.slice(0, INJECT_TOP).map(s => s.f);
+  for (const f of chosen) {
+    f.lastSeen = now;
+    f.strength = Math.min((f.strength || 1) + REINFORCE, 25);
+  }
+  if (chosen.length) void persist();
+  return chosen;
+}
+
 /**
  * The block silently prepended to a chat's system prompt. Picks the memories
  * most relevant to what's being discussed and reinforces them (using a memory
