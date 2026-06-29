@@ -128,7 +128,7 @@ const styles = StyleSheet.create({
     fontSize: 44,
   },
   headline: {
-    fontFamily: Fonts.serif,
+    fontFamily: Fonts.satoshi,
     fontSize: 36,
     lineHeight: 44,
     color: AppColors.textPrimary,

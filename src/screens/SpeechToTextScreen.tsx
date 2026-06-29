@@ -329,7 +329,7 @@ const styles = StyleSheet.create({
     fontSize: 48,
   },
   statusTitle: {
-    fontFamily: Fonts.serif,
+    fontFamily: Fonts.satoshi,
     fontSize: 22,
     color: AppColors.textPrimary,
     marginBottom: 8,

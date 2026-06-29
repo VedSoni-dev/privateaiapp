@@ -15,6 +15,28 @@ module.exports = {
         },
       },
     ],
+    [
+      'expo-font',
+      {
+        fonts: [
+          './assets/fonts/Satoshi-Regular.ttf',
+          './assets/fonts/Satoshi-Medium.ttf',
+          './assets/fonts/Satoshi-Bold.ttf',
+        ],
+        android: {
+          fonts: [
+            {
+              fontFamily: 'Satoshi',
+              fontDefinitions: [
+                { path: './assets/fonts/Satoshi-Regular.ttf', weight: 400 },
+                { path: './assets/fonts/Satoshi-Medium.ttf', weight: 500 },
+                { path: './assets/fonts/Satoshi-Bold.ttf', weight: 700 },
+              ],
+            },
+          ],
+        },
+      },
+    ],
   ],  splash: {
     backgroundColor: '#FFFFFF',
   },

@@ -122,7 +122,7 @@ const styles = StyleSheet.create({
   },
   icon: { fontSize: 40 },
   headline: {
-    fontFamily: Fonts.serif,
+    fontFamily: Fonts.satoshi,
     fontSize: 26, lineHeight: 34,
     color: AppColors.textPrimary,
     textAlign: 'center', marginBottom: 10,
@@ -159,7 +159,7 @@ const styles = StyleSheet.create({
   },
   priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 3, marginBottom: 14 },
   planPrice: {
-    fontFamily: Fonts.serif,
+    fontFamily: Fonts.satoshi,
     fontSize: 32, color: AppColors.textPrimary, marginBottom: 14,
   },
   pricePer: { fontSize: 14, color: 'rgba(255,255,255,0.5)', marginBottom: 14 },

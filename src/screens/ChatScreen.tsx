@@ -755,7 +755,7 @@ const styles = StyleSheet.create({
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   logoImage:  { width: 32, height: 32, borderRadius: 8 },
   headerTitle: {
-    fontFamily: Fonts.serif, fontSize: 17,
+    fontFamily: Fonts.satoshi, fontSize: 17,
     color: AppColors.textPrimary, letterSpacing: 0.1,
   },
   headerBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
@@ -780,7 +780,7 @@ const styles = StyleSheet.create({
   },
   emptyMarkImage: { width: 48, height: 48, borderRadius: 12, marginBottom: 20 },
   emptyTitle: {
-    fontFamily: Fonts.serif, fontSize: 32, lineHeight: 40,
+    fontFamily: Fonts.satoshi, fontSize: 32, lineHeight: 40,
     color: AppColors.textPrimary, marginBottom: 24, letterSpacing: 0.1,
   },
   suggestionsContainer: { width: '100%', gap: 8 },
@@ -878,7 +878,7 @@ const styles = StyleSheet.create({
   },
   panelContent:  { paddingHorizontal: 16, paddingBottom: 36 },
   panelHeader:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, paddingBottom: 16 },
-  panelTitle:    { fontFamily: Fonts.serif, fontSize: 22, color: AppColors.textPrimary },
+  panelTitle:    { fontFamily: Fonts.satoshi, fontSize: 22, color: AppColors.textPrimary },
   panelClose:    { width: 30, height: 30, borderRadius: 6, backgroundColor: AppColors.surfaceCard, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: AppColors.border },
   panelCloseText: { fontSize: 13, color: AppColors.textSecondary, fontWeight: '600' },
   panelCard: {

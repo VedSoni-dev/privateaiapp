@@ -495,7 +495,7 @@ const styles = StyleSheet.create({
     fontSize: 48,
   },
   statusText: {
-    fontFamily: Fonts.serif,
+    fontFamily: Fonts.satoshi,
     fontSize: 22,
     color: AppColors.textPrimary,
     marginBottom: 8,
@@ -515,7 +515,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   conversationTitle: {
-    fontFamily: Fonts.serif,
+    fontFamily: Fonts.satoshi,
     fontSize: 19,
     color: AppColors.textPrimary,
     letterSpacing: 0.2,
@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
     borderColor: AppColors.border,
   },
   infoTitle: {
-    fontFamily: Fonts.serif,
+    fontFamily: Fonts.satoshi,
     fontSize: 17,
     color: AppColors.textPrimary,
     marginBottom: 16,
