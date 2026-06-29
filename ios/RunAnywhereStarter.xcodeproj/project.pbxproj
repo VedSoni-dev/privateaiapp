@@ -17,6 +17,12 @@
 		95FAA6247F992A3A1B818127 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB81A68108700A75B9A /* PrivacyInfo.xcprivacy */; };
 		NATIVE_AUDIO_OBJC /* NativeAudioModule.m in Sources */ = {isa = PBXBuildFile; fileRef = NATIVE_AUDIO_OBJC_REF /* NativeAudioModule.m */; };
 		NATIVE_AUDIO_SWIFT /* NativeAudioModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = NATIVE_AUDIO_SWIFT_REF /* NativeAudioModule.swift */; };
+		D569E4EE434B4044BD749804 /* Satoshi-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = EFB6493E84014535ADE331B0 /* Satoshi-Bold.ttf */; };
+		0EA91508CCD54FE39A96D99E /* Satoshi-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = EFB6493E84014535ADE331B0 /* Satoshi-Bold.ttf */; };
+		D90E6AD4C02C4A7ABF8E4545 /* Satoshi-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 746CA7BC45394867BDD5F420 /* Satoshi-Medium.ttf */; };
+		08A869FAA4924EB783DDAE49 /* Satoshi-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 746CA7BC45394867BDD5F420 /* Satoshi-Medium.ttf */; };
+		10AA07F01F4E47A8AA43FAEA /* Satoshi-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D9F304A259DB46D39ABCBD48 /* Satoshi-Regular.ttf */; };
+		730B4817AB3B46FBB5E6E148 /* Satoshi-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = D9F304A259DB46D39ABCBD48 /* Satoshi-Regular.ttf */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -50,6 +56,9 @@
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		NATIVE_AUDIO_OBJC_REF /* NativeAudioModule.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = NativeAudioModule.m; path = RunAnywhereStarter/NativeAudioModule.m; sourceTree = "<group>"; };
 		NATIVE_AUDIO_SWIFT_REF /* NativeAudioModule.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = NativeAudioModule.swift; path = RunAnywhereStarter/NativeAudioModule.swift; sourceTree = "<group>"; };
+		EFB6493E84014535ADE331B0 /* Satoshi-Bold.ttf */ = {isa = PBXFileReference; name = "Satoshi-Bold.ttf"; path = "../assets/fonts/Satoshi-Bold.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		746CA7BC45394867BDD5F420 /* Satoshi-Medium.ttf */ = {isa = PBXFileReference; name = "Satoshi-Medium.ttf"; path = "../assets/fonts/Satoshi-Medium.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
+		D9F304A259DB46D39ABCBD48 /* Satoshi-Regular.ttf */ = {isa = PBXFileReference; name = "Satoshi-Regular.ttf"; path = "../assets/fonts/Satoshi-Regular.ttf"; sourceTree = "<group>"; fileEncoding = undefined; lastKnownFileType = unknown; explicitFileType = undefined; includeInIndex = 0; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -131,6 +140,7 @@
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 				BBD78D7AC51CEA395F1C20DB /* Pods */,
+				47F82BBBA10949EF99A150E9 /* Resources */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -156,6 +166,17 @@
 			);
 			path = Pods;
 			sourceTree = "<group>";
+		};
+		47F82BBBA10949EF99A150E9 /* Resources */ = {
+			isa = "PBXGroup";
+			children = (
+				EFB6493E84014535ADE331B0 /* Satoshi-Bold.ttf */,
+				746CA7BC45394867BDD5F420 /* Satoshi-Medium.ttf */,
+				D9F304A259DB46D39ABCBD48 /* Satoshi-Regular.ttf */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+			path = "";
 		};
 /* End PBXGroup section */
 
@@ -243,6 +264,9 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0EA91508CCD54FE39A96D99E /* Satoshi-Bold.ttf in Resources */,
+				08A869FAA4924EB783DDAE49 /* Satoshi-Medium.ttf in Resources */,
+				730B4817AB3B46FBB5E6E148 /* Satoshi-Regular.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -253,6 +277,9 @@
 				81AB9BB82411601600AC10FF /* LaunchScreen.storyboard in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				95FAA6247F992A3A1B818127 /* PrivacyInfo.xcprivacy in Resources */,
+				D569E4EE434B4044BD749804 /* Satoshi-Bold.ttf in Resources */,
+				D90E6AD4C02C4A7ABF8E4545 /* Satoshi-Medium.ttf in Resources */,
+				10AA07F01F4E47A8AA43FAEA /* Satoshi-Regular.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

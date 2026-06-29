@@ -11,6 +11,7 @@ module.exports = {
       automaticPodsInstallation: false,
     },
   },
+  assets: ['./assets/fonts/'],
   dependencies: {
     // Disable packages not needed on iOS
     'react-native-sound': {

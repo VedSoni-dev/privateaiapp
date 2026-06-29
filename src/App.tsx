@@ -4,7 +4,6 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator, TransitionPresets } from '@react-navigation/stack';
 import { StatusBar, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { useFonts } from 'expo-font';
 import { RunAnywhere, SDKEnvironment } from '@runanywhere/core';
 import { LlamaCPP } from '@runanywhere/llamacpp';
 import { ONNX } from '@runanywhere/onnx';
@@ -26,11 +25,6 @@ const Stack = createStackNavigator<RootStackParamList>();
 
 const App: React.FC = () => {
   const [initialRoute, setInitialRoute] = useState<'Onboarding' | 'Chat' | null>(null);
-  const [fontsLoaded] = useFonts({
-    Satoshi: require('../assets/fonts/Satoshi-Regular.ttf'),
-    'Satoshi-Medium': require('../assets/fonts/Satoshi-Medium.ttf'),
-    'Satoshi-Bold': require('../assets/fonts/Satoshi-Bold.ttf'),
-  });
 
   useEffect(() => {
     const boot = async () => {
@@ -54,7 +48,7 @@ const App: React.FC = () => {
     boot();
   }, []);
 
-  if (!fontsLoaded || !initialRoute) {
+  if (!initialRoute) {
     return <View style={{ flex: 1, backgroundColor: AppColors.primaryDark }} />;
   }
 

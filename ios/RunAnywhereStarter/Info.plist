@@ -48,7 +48,7 @@
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>This app uses the local network to connect to Metro bundler during development</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string></string>
+	<string/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app needs microphone access for speech recognition and voice agent features</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
@@ -71,5 +71,11 @@
 	<false/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Satoshi-Bold.ttf</string>
+		<string>Satoshi-Medium.ttf</string>
+		<string>Satoshi-Regular.ttf</string>
+	</array>
 </dict>
 </plist>

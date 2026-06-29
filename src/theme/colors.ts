@@ -37,9 +37,9 @@ export const AppColors = {
 export type AppColorsType = typeof AppColors;
 
 export const Fonts = {
-  satoshi: 'Satoshi',
+  satoshi: 'Satoshi-Regular',
   satoshiMedium: 'Satoshi-Medium',
   satoshiBold: 'Satoshi-Bold',
-  sans: 'Satoshi',
+  sans: 'Satoshi-Regular',
   mono: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
 } as const;
