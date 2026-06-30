@@ -6,7 +6,7 @@ import { ONNX, ModelArtifactType } from '@runanywhere/onnx';
 // Model IDs - matching sample app model registry
 // See: /Users/shubhammalhotra/Desktop/test-fresh/runanywhere-sdks/examples/react-native/RunAnywhereAI/App.tsx
 const MODEL_IDS = {
-  llm: 'qwen2.5-3b-instruct-q4_k_m', // Qwen2.5 3B - strong reasoning + uses search results well
+  llm: 'qwen3-4b-instruct-2507-q4_k_m', // Qwen3 4B - native tool-call format, stronger reasoning than 2.5
   stt: 'sherpa-onnx-whisper-tiny.en',
   tts: 'vits-piper-en_US-lessac-medium',
 } as const;
@@ -253,14 +253,16 @@ export const ModelServiceProvider: React.FC<ModelServiceProviderProps> = ({ chil
  * Models match the sample app: /Users/shubhammalhotra/Desktop/test-fresh/runanywhere-sdks/examples/react-native/RunAnywhereAI/App.tsx
  */
 export const registerDefaultModels = async () => {
-  // LLM Model - Qwen2.5 3B Instruct (Q4_K_M, ~1.9GB). Big enough to actually use
-  // injected web-search results and follow instructions without hallucinating.
-  // Targets iPhone 12 and newer (4GB+ RAM).
+  // LLM Model - Qwen3 4B Instruct (Q4_K_M, ~2.5GB). Newer architecture than 2.5,
+  // native Hermes-style tool-call format (used by AgentService's decision pass),
+  // and noticeably stronger reasoning/instruction-following at a similar quant.
+  // Targets iPhone 12 and newer (4GB+ RAM) — watch jetsam risk vs the old 3B,
+  // hence the tight prompt caps in AgentService.
   await LlamaCPP.addModel({
     id: MODEL_IDS.llm,
-    name: 'Qwen2.5 3B Instruct (Q4_K_M)',
-    url: 'https://huggingface.co/bartowski/Qwen2.5-3B-Instruct-GGUF/resolve/main/Qwen2.5-3B-Instruct-Q4_K_M.gguf',
-    memoryRequirement: 2_200_000_000,
+    name: 'Qwen3 4B Instruct (Q4_K_M)',
+    url: 'https://huggingface.co/bartowski/Qwen_Qwen3-4B-Instruct-2507-GGUF/resolve/main/Qwen_Qwen3-4B-Instruct-2507-Q4_K_M.gguf',
+    memoryRequirement: 2_900_000_000,
   });
 
   // Lightweight fallback model (fast, tiny) for low-memory situations.

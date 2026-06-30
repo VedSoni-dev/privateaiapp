@@ -428,7 +428,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
         </View>
         <ModelLoaderWidget
           title="Setting up your private AI"
-          subtitle="Downloading the Qwen2.5 3B language model (~1.9GB). This only happens once — Wi-Fi recommended."
+          subtitle="Downloading the Qwen3 4B language model (~2.5GB). This only happens once — Wi-Fi recommended."
           icon="chat"
           accentColor={AppColors.accentCyan}
           isDownloading={modelService.isLLMDownloading}

@@ -1,15 +1,20 @@
 /**
- * AgentService v2 — agentic tool-use orchestration for the on-device model.
+ * AgentService v3 — agentic tool-use orchestration for the on-device model.
  *
- * Architecture: tool selection → parallel execution → structured injection → stream
+ * Architecture: model decides (web_search) → execution → structured injection → stream
  *
- * Available tools (all run heuristically — no pre-stream LLM call, safe on iOS):
- *   • web_search   — DuckDuckGo results for real-time queries
- *   • memory_recall — relevant long-term facts about the user
- *   • datetime     — current date/time (always injected)
+ * Tools:
+ *   • web_search    — the model itself decides whether to call this and with what
+ *     query, via a short non-streamed decision pass (Hermes-style <tool_call> tag).
+ *     Falls back to the old regex heuristic if the decision call fails or the
+ *     model's output doesn't parse, so search never silently stops working.
+ *   • memory_recall — relevant long-term facts about the user (cheap, local, no
+ *     decision needed — always considered)
+ *   • datetime      — current date/time (always injected, free)
  *
- * The model sees tool results as structured blocks in the system prompt,
- * making it behave like a proper tool-using agent without native function calling.
+ * The model sees tool results as structured blocks in the system prompt for the
+ * final answer turn. The decision pass is intentionally tiny (short prompt, low
+ * maxTokens) to avoid the iOS jetsam risk a full second inference pass would add.
  */
 import { RunAnywhere } from '@runanywhere/core';
 import * as Memory from './MemoryService';
@@ -118,8 +123,66 @@ async function runDatetimeTool(): Promise<ToolCall> {
   };
 }
 
-async function runWebSearchTool(userText: string, onStatus?: PrepareTurnOptions['onStatus']): Promise<ToolCall | null> {
-  const query = await planSearch(userText);
+// ── Tool-call decision pass ──────────────────────────────────────────────────
+// A short, non-streamed generate() call where the model decides whether it
+// needs web_search and with what query. Kept deliberately tiny (prompt + token
+// budget) so it doesn't reintroduce the jetsam risk the old single-pass design
+// avoided. Qwen3's instruct format understands Hermes-style <tool_call> tags.
+
+const TOOL_SPEC =
+  'You can call one tool: web_search, for real-time info (scores, prices, news, weather, "today/latest/current" facts).\n' +
+  'If you need it, reply with EXACTLY this and nothing else:\n' +
+  '<tool_call>\n{"name": "web_search", "arguments": {"query": "<search query>"}}\n</tool_call>\n' +
+  'If you do NOT need it, reply with EXACTLY: NONE';
+
+const TOOL_CALL_RE = /<tool_call>\s*([\s\S]*?)\s*<\/tool_call>/i;
+
+function buildDecisionPrompt(userText: string, history: AgentMessage[]): string {
+  const lastTurn = [...history].reverse().find(m => !m.isError);
+  const end = '<|im_' + 'end|>';
+  const parts = [`<|im_start|>system\n${TOOL_SPEC}${end}`];
+  if (lastTurn) {
+    const role = lastTurn.isUser ? 'user' : 'assistant';
+    parts.push(`<|im_start|>${role}\n${lastTurn.text.slice(0, 400)}${end}`);
+  }
+  parts.push(`<|im_start|>user\n${userText.slice(0, 400)}${end}`);
+  parts.push('<|im_start|>assistant\n');
+  return parts.join('\n');
+}
+
+async function decideWebSearchQuery(userText: string, history: AgentMessage[]): Promise<string | null> {
+  try {
+    const prompt = buildDecisionPrompt(userText, history);
+    // Native generate()/generateStream() must never overlap (iOS crash) — share the lock.
+    const result = await withInferenceLock(() =>
+      RunAnywhere.generate(prompt, { maxTokens: 80, temperature: 0.1 }),
+    );
+    const text = (result.text || '').trim();
+
+    const match = text.match(TOOL_CALL_RE);
+    if (match) {
+      const parsed = JSON.parse(match[1]);
+      const query = parsed?.arguments?.query;
+      if (typeof query === 'string' && query.trim()) {
+        console.log('[Agent] tool-call decision: web_search ->', query);
+        return query.trim().slice(0, 200);
+      }
+    }
+    if (/^NONE\b/i.test(text)) {
+      console.log('[Agent] tool-call decision: NONE');
+      return null;
+    }
+    // Model didn't follow the format — fall back to the regex heuristic.
+    console.warn('[Agent] tool-call decision unparseable, falling back to heuristic:', JSON.stringify(text.slice(0, 120)));
+    return await planSearch(userText);
+  } catch (e) {
+    console.warn('[Agent] tool-call decision pass failed, falling back to heuristic:', e);
+    return await planSearch(userText);
+  }
+}
+
+async function runWebSearchTool(userText: string, history: AgentMessage[], onStatus?: PrepareTurnOptions['onStatus']): Promise<ToolCall | null> {
+  const query = await decideWebSearchQuery(userText, history);
   if (!query) return null;
 
   onStatus?.({ type: 'searching', query });
@@ -185,7 +248,7 @@ export async function prepareTurn(opts: PrepareTurnOptions): Promise<PreparedTur
   const toolPromises: Promise<ToolCall | null>[] = [
     runDatetimeTool(),
     runMemoryTool(userText, history, onStatus),
-    webEnabled ? runWebSearchTool(userText, onStatus) : Promise.resolve(null),
+    webEnabled ? runWebSearchTool(userText, history, onStatus) : Promise.resolve(null),
   ];
 
   const results = await Promise.all(toolPromises);
