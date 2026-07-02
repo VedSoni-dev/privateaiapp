@@ -67,7 +67,7 @@ const PERSONA =
   '3. If search ran but the results only confirm the topic exists (e.g. "ESPN has live scores") without specific data: say what you know (e.g. "World Cup games are happening today — here\'s what the search found:") then give the source info, and note you don\'t have the live score feed.\n' +
   '4. Never fabricate scores, fixture times, or prices. Make clear what is confirmed vs uncertain.\n' +
   '5. If no search ran and the question needs live data: tell the user to tap the globe icon to enable web search.\n' +
-  '6. Format: tight and scannable. Bullets for lists, bold for key facts. No preamble, no sign-off.';
+  '6. Format: tight and scannable. Bullets for lists, bold for key facts. No preamble, no sign-off. /no_think';
 
 // ── ChatML builder ────────────────────────────────────────────────────────────
 
@@ -133,9 +133,19 @@ const TOOL_SPEC =
   'You can call one tool: web_search, for real-time info (scores, prices, news, weather, "today/latest/current" facts).\n' +
   'If you need it, reply with EXACTLY this and nothing else:\n' +
   '<tool_call>\n{"name": "web_search", "arguments": {"query": "<search query>"}}\n</tool_call>\n' +
-  'If you do NOT need it, reply with EXACTLY: NONE';
+  'If you do NOT need it, reply with EXACTLY: NONE\n/no_think';
 
 const TOOL_CALL_RE = /<tool_call>\s*([\s\S]*?)\s*<\/tool_call>/i;
+
+// Qwen3 hybrid-thinking models emit an (often empty) <think>…</think> block
+// even in /no_think mode. Strip it anywhere it appears; if a <think> is still
+// open (mid-stream), hide everything from it onward.
+export function stripThink(text: string): string {
+  let out = text.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  const open = out.search(/<think>/i);
+  if (open !== -1) out = out.slice(0, open);
+  return out.replace(/^\s+/, '');
+}
 
 function buildDecisionPrompt(userText: string, history: AgentMessage[]): string {
   const lastTurn = [...history].reverse().find(m => !m.isError);
@@ -157,7 +167,7 @@ async function decideWebSearchQuery(userText: string, history: AgentMessage[]): 
     const result = await withInferenceLock(() =>
       RunAnywhere.generate(prompt, { maxTokens: 80, temperature: 0.1 }),
     );
-    const text = (result.text || '').trim();
+    const text = stripThink(result.text || '').trim();
 
     const match = text.match(TOOL_CALL_RE);
     if (match) {
@@ -327,14 +337,14 @@ export async function streamTurn(opts: StreamTurnOptions): Promise<StreamTurnRes
         gotToken = true;
       }
       text += token;
-      opts.onToken(text);
+      opts.onToken(stripThink(text));
     }
     const final = await streamResult.result;
     console.log(
       `[Agent] generateStream DONE tokens=${final.tokensUsed} tps=${final.tokensPerSecond?.toFixed(1)}`,
     );
     return {
-      text,
+      text: stripThink(text),
       tokensPerSecond: final.tokensPerSecond,
       totalTokens: final.tokensUsed,
     };

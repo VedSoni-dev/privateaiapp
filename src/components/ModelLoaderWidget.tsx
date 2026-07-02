@@ -46,7 +46,7 @@ export const ModelLoaderWidget: React.FC<ModelLoaderWidgetProps> = ({
             ? `Downloading the Qwen3 AI model (${pct}%). This only happens once — Wi-Fi recommended.`
             : isLoading
             ? 'Initializing the model on-device. Nearly there.'
-            : 'Download the Qwen3 4B language model (~2.5 GB) to get started. This only happens once.'}
+            : 'Download the Qwen3 language model (~1.1 GB) to get started. This only happens once.'}
         </Text>
 
         {isDownloading && (

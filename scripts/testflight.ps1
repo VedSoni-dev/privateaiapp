@@ -1,4 +1,4 @@
-# Private AI → TestFlight
+# Private AI -> TestFlight
 # Run:  .\scripts\testflight.ps1
 
 $ErrorActionPreference = "Continue"
@@ -26,7 +26,7 @@ if ($exit -ne 0) {
 }
 
 Write-Host ""
-Write-Host "  SUCCESS — build uploaded to TestFlight." -ForegroundColor Green
+Write-Host "  SUCCESS - build uploaded to TestFlight." -ForegroundColor Green
 Write-Host "  Wait 10-30 min, then refresh App Store Connect -> TestFlight." -ForegroundColor Gray
 Write-Host "  Add testers: External Testing, add email." -ForegroundColor Gray
 Write-Host ""
