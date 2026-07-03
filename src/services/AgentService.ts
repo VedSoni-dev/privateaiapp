@@ -2,14 +2,19 @@
  * AgentService v4 — agentic tool-use orchestration against the cloud backend.
  *
  * Inference now runs on Privatemode's confidential-compute cloud (via our
- * own backend, see server/) instead of on-device. This removes the iOS
- * memory/jetsam constraints that shaped earlier versions of this file, and
- * lets us use real OpenAI-style tool calling instead of a heuristic decision
- * pass: the model sees a `web_search` tool definition and decides on its own
- * whether to call it, with what query, via the API's native tool_calls field.
+ * own backend, see server/) instead of on-device, removing the iOS
+ * memory/jetsam constraints that shaped earlier versions of this file.
+ *
+ * Tool decision uses a plain-text prompt format (SEARCH: <query> / NONE),
+ * not the OpenAI `tools`/`tool_calls` API — testing against the deployed
+ * gpt-oss-120b via Privatemode's proxy showed tool_calls always came back
+ * empty even with tool_choice: "required", and an XML-style <tool_call>
+ * prompt format collided with the model's own Harmony-format tokens. The
+ * plain SEARCH:/NONE format is unambiguous and has tested reliably.
  *
  * Tools:
- *   • web_search    — real tool call; model decides when to invoke it
+ *   • web_search    — plain-text decision pass, model outputs SEARCH: <query>
+ *     or NONE; parsed and executed here
  *   • memory_recall — relevant long-term facts about the user (cheap, local,
  *     injected directly into the system prompt — no round trip needed)
  *   • datetime      — current date/time (always injected, free)
@@ -17,7 +22,7 @@
 import * as Memory from './MemoryService';
 import { webSearch } from './WebSearchService';
 import { buildAttachmentBlock, type Attachment } from './AttachmentService';
-import { chatComplete, chatStream, type ChatMessage, type ToolSpec } from './BackendClient';
+import { chatComplete, chatStream, type ChatMessage } from './BackendClient';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -69,20 +74,16 @@ const PERSONA =
   '4. Never fabricate scores, fixture times, or prices. Make clear what is confirmed vs uncertain.\n' +
   '5. Format: tight and scannable. Bullets for lists, bold for key facts. No preamble, no sign-off.';
 
-const WEB_SEARCH_TOOL: ToolSpec = {
-  type: 'function',
-  function: {
-    name: 'web_search',
-    description: 'Search the web for real-time info: scores, prices, news, weather, or any "today/latest/current" fact.',
-    parameters: {
-      type: 'object',
-      properties: {
-        query: { type: 'string', description: 'The search query' },
-      },
-      required: ['query'],
-    },
-  },
-};
+const SEARCH_DECISION_SYSTEM =
+  'Reasoning: low\n\n' +
+  'Decide if answering the user\'s message needs a web search for real-time info ' +
+  '(news, prices, scores, weather, current events, anything that changes day to day). ' +
+  'Reply with ONLY one line, no other text:\n' +
+  'SEARCH: <search query>\n' +
+  'or\n' +
+  'NONE';
+
+const SEARCH_LINE_RE = /^SEARCH:\s*(.+)$/im;
 
 function toBackendMessages(history: AgentMessage[]): ChatMessage[] {
   return history
@@ -174,16 +175,18 @@ export async function prepareTurn(opts: PrepareTurnOptions): Promise<PreparedTur
 
   if (webEnabled) {
     try {
-      const decision = await chatComplete(baseMessages, {
-        tools: [WEB_SEARCH_TOOL],
-        maxTokens: 350,
-        temperature: 0.2,
+      const decisionMessages: ChatMessage[] = [
+        { role: 'system', content: SEARCH_DECISION_SYSTEM },
+        { role: 'user', content: userText },
+      ];
+      const decision = await chatComplete(decisionMessages, {
+        maxTokens: 250,
+        temperature: 0.1,
       });
 
-      const call = decision.toolCalls?.[0];
-      if (call?.function?.name === 'web_search') {
-        const args = JSON.parse(call.function.arguments || '{}');
-        const query = String(args?.query || userText).slice(0, 200);
+      const match = decision.text.match(SEARCH_LINE_RE);
+      if (match) {
+        const query = match[1].trim().slice(0, 200);
         const searchResult = await runWebSearchTool(query, onStatus);
         toolCalls.push(searchResult);
 

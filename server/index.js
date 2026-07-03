@@ -78,6 +78,29 @@ app.get('/health', async (_req, res) => {
   res.json({ ok: true });
 });
 
+// The Privatemode/vLLM upstream fails intermittently (observed ~1 in 3
+// non-streamed calls erroring out with no useful detail). Retry a couple
+// times before giving up — cheap insurance against a flaky dependency.
+async function fetchUpstreamWithRetry(body, attempts = 3) {
+  let lastError;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const upstream = await fetch(`${PROXY_URL}/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (upstream.ok && upstream.body) return upstream;
+      const text = await upstream.text().catch(() => '');
+      lastError = new Error(`status ${upstream.status}: ${text.slice(0, 300)}`);
+    } catch (e) {
+      lastError = e;
+    }
+    if (i < attempts - 1) await new Promise((r) => setTimeout(r, 400 * (i + 1)));
+  }
+  throw lastError;
+}
+
 // ── Chat proxy — the only endpoint the app talks to ─────────────────────────
 // Body: { messages: [...], stream?: boolean, maxTokens?: number, temperature?: number }
 // The app never sees the Privatemode API key or talks to the proxy directly.
@@ -87,25 +110,19 @@ app.post('/v1/chat', rateLimit, async (req, res) => {
     return res.status(400).json({ error: 'messages array required' });
   }
 
-  try {
-    const upstream = await fetch(`${PROXY_URL}/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: MODEL,
-        messages,
-        max_tokens: maxTokens,
-        temperature,
-        ...(Array.isArray(tools) && tools.length > 0 ? { tools } : {}),
-        stream,
-      }),
-    });
+  const body = {
+    model: MODEL,
+    messages,
+    max_tokens: maxTokens,
+    temperature,
+    ...(Array.isArray(tools) && tools.length > 0 ? { tools } : {}),
+    stream,
+  };
 
-    if (!upstream.ok || !upstream.body) {
-      const text = await upstream.text().catch(() => '');
-      console.error('[chat] upstream error', upstream.status, text.slice(0, 500));
-      return res.status(502).json({ error: 'upstream inference failed' });
-    }
+  try {
+    // Streaming responses can't be retried after bytes start flowing, so
+    // only the initial connection gets the retry safety net either way.
+    const upstream = await fetchUpstreamWithRetry(body, stream ? 2 : 3);
 
     if (!stream) {
       const data = await upstream.json();
@@ -121,8 +138,8 @@ app.post('/v1/chat', rateLimit, async (req, res) => {
     }
     res.end();
   } catch (e) {
-    console.error('[chat] request failed', e);
-    if (!res.headersSent) res.status(502).json({ error: 'upstream request failed' });
+    console.error('[chat] upstream failed after retries', e);
+    if (!res.headersSent) res.status(502).json({ error: 'upstream inference failed' });
   }
 });
 

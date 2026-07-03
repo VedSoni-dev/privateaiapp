@@ -1,7 +1,7 @@
 /**
- * BackendClient — the only thing that talks to our Fly.io backend, which in
- * turn talks to the Privatemode confidential-compute proxy. The app never
- * holds an API key or talks to Privatemode directly.
+ * BackendClient — the only thing that talks to our backend (deployed on
+ * Render), which in turn talks to the Privatemode confidential-compute
+ * proxy. The app never holds an API key or talks to Privatemode directly.
  */
 import { getDeviceId } from './DeviceId';
 
