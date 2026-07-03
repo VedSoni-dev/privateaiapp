@@ -11,7 +11,7 @@
  * Persistence uses react-native-fs (already a native dependency, no rebuild).
  */
 import RNFS from 'react-native-fs';
-import { RunAnywhere } from '@runanywhere/core';
+import { chatComplete } from './BackendClient';
 
 const FILE = `${RNFS.DocumentDirectoryPath}/private-ai-memory.json`;
 
@@ -99,17 +99,23 @@ function parseBullets(text: string): string[] {
     .filter(l => l && l.toUpperCase() !== 'NONE' && l.length < 240);
 }
 
-/* ── A small non-streaming call to the local model ── */
+/* ── A small non-streaming call to the backend model ── */
+// "Reasoning: low" keeps gpt-oss's hidden reasoning short so these small,
+// frequent background calls don't burn their whole token budget on
+// reasoning and come back with an empty answer (content: null).
 async function ask(
   system: string,
   user: string,
-  { temperature = 0.1, maxTokens = 256 } = {},
+  { temperature = 0.1, maxTokens = 400 } = {},
 ): Promise<string> {
   try {
-    const result = await RunAnywhere.generate(`${system}\n\n${user}`, {
-      temperature,
-      maxTokens,
-    });
+    const result = await chatComplete(
+      [
+        { role: 'system', content: `Reasoning: low\n\n${system}` },
+        { role: 'user', content: user },
+      ],
+      { temperature, maxTokens },
+    );
     return (result.text || '').trim();
   } catch {
     return '';
@@ -287,7 +293,7 @@ export async function learnFromExchange(
 ): Promise<MemoryFact[]> {
   if (!userText || userText.length < 4) return [];
   const convo = `USER: ${userText}\n\nASSISTANT: ${assistantText}`.slice(0, 6000);
-  const out = await ask(EXTRACT_SYSTEM, convo, { temperature: 0, maxTokens: 200 });
+  const out = await ask(EXTRACT_SYSTEM, convo, { temperature: 0, maxTokens: 400 });
   store.extractsSinceDream++;
   if (!out || /^none$/i.test(out.trim())) {
     await persist();
@@ -315,7 +321,7 @@ export async function dream(): Promise<{ changed: boolean; before: number; after
   const list = getFacts()
     .map(f => `- ${f.text}`)
     .join('\n');
-  const out = await ask(DREAM_SYSTEM, list, { temperature: 0.2, maxTokens: 600 });
+  const out = await ask(DREAM_SYSTEM, list, { temperature: 0.2, maxTokens: 900 });
   const cleaned = parseBullets(out);
   if (cleaned.length === 0) return { changed: false, before, after: before };
 
@@ -372,7 +378,7 @@ export async function compact(
     .map(m => `${m.role === 'user' ? 'USER' : 'ASSISTANT'}: ${m.content || ''}`)
     .join('\n')
     .slice(0, 12000);
-  const summary = await ask(COMPACT_SYSTEM, transcript, { temperature: 0.2, maxTokens: 400 });
+  const summary = await ask(COMPACT_SYSTEM, transcript, { temperature: 0.2, maxTokens: 700 });
   if (!summary) return { messages, compacted: false };
 
   const recap: ChatTurn = {

@@ -82,7 +82,7 @@ app.get('/health', async (_req, res) => {
 // Body: { messages: [...], stream?: boolean, maxTokens?: number, temperature?: number }
 // The app never sees the Privatemode API key or talks to the proxy directly.
 app.post('/v1/chat', rateLimit, async (req, res) => {
-  const { messages, stream = false, maxTokens = 800, temperature = 0.7 } = req.body || {};
+  const { messages, stream = false, maxTokens = 800, temperature = 0.7, tools } = req.body || {};
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'messages array required' });
   }
@@ -96,6 +96,7 @@ app.post('/v1/chat', rateLimit, async (req, res) => {
         messages,
         max_tokens: maxTokens,
         temperature,
+        ...(Array.isArray(tools) && tools.length > 0 ? { tools } : {}),
         stream,
       }),
     });

@@ -23,10 +23,8 @@ import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import LinearGradient from 'react-native-linear-gradient';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { RunAnywhere } from '@runanywhere/core';
 import { AppColors, Fonts } from '../theme';
-import { useModelService } from '../services/ModelService';
-import { ChatMessageBubble, ChatMessage, ModelLoaderWidget, ThinkingIndicator, PaywallModal } from '../components';
+import { ChatMessageBubble, ChatMessage, ThinkingIndicator, PaywallModal } from '../components';
 import { RootStackParamList } from '../navigation/types';
 import { prepareTurn, learnInBackground, streamTurn } from '../services/AgentService';
 import * as SafeHaptics from '../services/HapticsService';
@@ -44,7 +42,6 @@ const PANEL_WIDTH = Math.min(340, Dimensions.get('window').width * 0.85);
 
 export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
-  const modelService = useModelService();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
@@ -161,18 +158,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
   }, []);
 
   useEffect(() => {
-    if (!modelService.isLLMLoaded && !modelService.isLLMDownloading && !modelService.isLLMLoading) {
-      modelService.downloadAndLoadLLM();
-    }
-  }, [modelService]);
-
-  useEffect(() => {
-    if (modelService.isLLMLoaded) {
-      void SafeHaptics.notificationSuccess();
-    }
-  }, [modelService.isLLMLoaded]);
-
-  useEffect(() => {
     if (messages.length > 0 || currentResponse) {
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
@@ -216,7 +201,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
     setStatusText('');
 
     try {
-      const { prompt, toolCalls } = await prepareTurn({
+      const { messages: preparedMessages, toolCalls } = await prepareTurn({
         history,
         userText: effectiveUserText,
         webEnabled,
@@ -241,8 +226,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
 
       responseRef.current = '';
       const streamFinal = await streamTurn({
-        prompt,
-        maxTokens: hasSearch ? 384 : 768,
+        messages: preparedMessages,
+        maxTokens: hasSearch ? 900 : 1400,
         temperature: hasSearch ? 0.3 : 0.7,
         onReady: cancel => {
           streamCancelRef.current = cancel;
@@ -409,37 +394,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
     </TouchableOpacity>
   );
 
-  if (!modelService.isLLMLoaded) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <StatusBar barStyle="light-content" />
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Image
-              source={require('../../assets/shield-48.png')}
-              style={styles.logoImage}
-              accessibilityLabel="Private AI"
-            />
-            <View>
-              <Text style={styles.headerTitle}>Private AI</Text>
-              <Text style={styles.headerSubtitle}>100% on your device</Text>
-            </View>
-          </View>
-        </View>
-        <ModelLoaderWidget
-          title="Setting up your private AI"
-          subtitle="Downloading the Qwen3 language model (~1.1GB). This only happens once — Wi-Fi recommended."
-          icon="chat"
-          accentColor={AppColors.accentCyan}
-          isDownloading={modelService.isLLMDownloading}
-          isLoading={modelService.isLLMLoading}
-          progress={modelService.llmDownloadProgress}
-          onLoad={modelService.downloadAndLoadLLM}
-        />
-      </SafeAreaView>
-    );
-  }
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" />
@@ -456,7 +410,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
             <Text style={styles.headerTitle}>Private AI</Text>
             <View style={styles.headerBadgeRow}>
               <View style={styles.onlineDot} />
-              <Text style={styles.headerSubtitle}>On-device · Private</Text>
+              <Text style={styles.headerSubtitle}>Confidential · Encrypted</Text>
             </View>
           </View>
         </View>
