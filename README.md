@@ -1,23 +1,21 @@
 # Private AI
 
-A ChatGPT-style assistant that runs **entirely on your iPhone** — no cloud, no account, no data leaving your device.
+A ChatGPT-style assistant, no account required. Chat replies are generated on [Privatemode](https://www.privatemode.ai/)'s confidential-compute cloud — encrypted end-to-end, never logged, never used for training — via our own backend.
 
-Built with [React Native](https://reactnative.dev/) and the [RunAnywhere SDK](https://docs.runanywhere.ai/react-native/introduction) for on-device LLM inference, speech-to-text, and text-to-speech.
+Built with [React Native](https://reactnative.dev/), a [backend](server/) that proxies chat completions to Privatemode, and a [Cloudflare Worker](worker/) for web search.
 
 ## Features
 
-- **Private chat** — Streaming conversations with a local language model (LiquidAI LFM2 350M)
-- **100% on-device** — All AI processing happens on your phone
-- **Works offline** — After the initial model download, no internet required
-- **Voice assistant** — Optional voice mode with Whisper STT + Piper TTS (via menu)
-- **No API keys** — Development mode runs inference locally with no cloud dependency
+- **Private chat** — Streaming conversations, generated via confidential-compute cloud inference (no plaintext ever seen by the server)
+- **Web search** — The model decides when a query needs live info and pulls in search results
+- **Memory** — Learns and recalls relevant facts about you across sessions
+- **No API keys in the app** — The app never holds a Privatemode key or talks to it directly; only your own backend does
 
 ## Requirements
 
 - **macOS** with Xcode 15+ (for iOS builds)
 - Node.js 18+
-- ~250MB storage for the LLM model (one-time download)
-- Physical iPhone recommended (iOS Simulator has limited on-device AI support)
+- Internet connection (chat responses require reaching the backend)
 
 ## Quick Start
 
@@ -50,51 +48,52 @@ Or open `ios/RunAnywhereStarter.xcworkspace` in Xcode and run on your connected 
 ## How it works
 
 ```
-┌─────────────────────────────────────────┐
-│              Private AI App              │
-├─────────────────────────────────────────┤
-│  Chat UI  →  RunAnywhere SDK  →  LLM    │
-│              (on-device inference)       │
-└─────────────────────────────────────────┘
+┌───────────────┐     ┌──────────────────┐     ┌────────────────────────┐
+│  Chat UI      │ ──▶ │  Our Backend     │ ──▶ │  Privatemode proxy     │
+│  (device)     │     │  (Render)        │     │  (confidential compute)│
+└───────────────┘     └──────────────────┘     └────────────────────────┘
 ```
 
-On first launch, the app downloads the LLM model (~250MB) from Hugging Face. The model is cached on your device — subsequent launches load it from local storage.
+The app never holds a Privatemode API key or talks to it directly — it only calls our backend, which proxies to Privatemode's encrypted confidential-compute inference (`gpt-oss-120b`).
 
 ## Project structure
 
 ```
 src/
-├── App.tsx              # SDK init + navigation
+├── App.tsx              # Navigation + boot
 ├── screens/
-│   ├── ChatScreen.tsx   # Main ChatGPT-like interface
-│   ├── VoicePipelineScreen.tsx
-│   ├── SpeechToTextScreen.tsx
-│   └── TextToSpeechScreen.tsx
+│   ├── OnboardingScreen.tsx
+│   └── ChatScreen.tsx    # Main ChatGPT-like interface
 ├── services/
-│   └── ModelService.tsx # Model download/load state
+│   ├── AgentService.ts   # Tool-use orchestration (web search, memory, datetime)
+│   ├── BackendClient.ts  # Talks to our backend's /v1/chat
+│   ├── WebSearchService.ts
+│   ├── MemoryService.ts
+│   ├── ChatStorageService.ts
+│   ├── AttachmentService.ts
+│   └── UsageService.ts
 └── components/
-    ├── ChatMessageBubble.tsx
-    └── ModelLoaderWidget.tsx
+    └── ChatMessageBubble.tsx
+
+server/                  # Backend that proxies chat completions to Privatemode
+worker/                  # Cloudflare Worker for web search
 ```
 
-## Models
+## Model
 
-| Model | Size | Purpose |
-|-------|------|---------|
-| LiquidAI LFM2 350M Q8_0 | ~250MB | Chat / text generation |
-| Sherpa Whisper Tiny EN | ~75MB | Speech-to-text (optional) |
-| Piper TTS US English | ~65MB | Text-to-speech (optional) |
+| Model | Purpose | Runs where |
+|-------|---------|------------|
+| gpt-oss-120b (via Privatemode) | Chat / text generation | Confidential-compute cloud |
 
 ## Android
 
-Android builds are supported but require a **physical ARM64 device** (emulators won't work with the native inference libraries). See [RunAnywhere Android setup](https://docs.runanywhere.ai/react-native/installation) for details.
+Android builds are supported. See the standard [React Native Android setup](https://reactnative.dev/docs/environment-setup) for details.
 
 ## Privacy
 
-- Conversations are stored only in app memory during a session
-- No analytics, telemetry, or cloud API calls for inference
-- Microphone access is only used for optional voice features
+- Chat replies are generated on Privatemode's confidential-compute cloud (TEE-attested, end-to-end encrypted) via our own backend — the app never holds a Privatemode API key
+- No analytics or telemetry
 
 ## License
 
-Apache 2.0 (see LICENSE). The RunAnywhere SDK has its own [license terms](https://runanywhere.ai/license).
+Apache 2.0 (see LICENSE).

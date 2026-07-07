@@ -4,21 +4,13 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator, TransitionPresets } from '@react-navigation/stack';
 import { StatusBar, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { RunAnywhere, SDKEnvironment } from '@runanywhere/core';
-import { LlamaCPP } from '@runanywhere/llamacpp';
-import { ONNX } from '@runanywhere/onnx';
-import { ModelServiceProvider, registerDefaultModels } from './services/ModelService';
+import { useFonts } from 'expo-font';
 import * as Memory from './services/MemoryService';
 import { initUsage } from './services/UsageService';
 import { AppColors, Fonts } from './theme';
-import {
-  OnboardingScreen,
-  ChatScreen,
-  SpeechToTextScreen,
-  TextToSpeechScreen,
-  VoicePipelineScreen,
-} from './screens';
+import { OnboardingScreen, ChatScreen } from './screens';
 import { checkOnboardingDone } from './screens/OnboardingScreen';
+import { ErrorBoundary } from './components';
 import { RootStackParamList } from './navigation/types';
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -26,21 +18,21 @@ const Stack = createStackNavigator<RootStackParamList>();
 const App: React.FC = () => {
   const [initialRoute, setInitialRoute] = useState<'Onboarding' | 'Chat' | null>(null);
 
+  // Satoshi is loaded at runtime via expo-font so the app runs in Expo Go with
+  // no native font linking. If loading fails we proceed anyway (system font).
+  const [fontsLoaded, fontError] = useFonts({
+    'Satoshi-Regular': require('../assets/fonts/Satoshi-Regular.ttf'),
+    'Satoshi-Medium': require('../assets/fonts/Satoshi-Medium.ttf'),
+    'Satoshi-Bold': require('../assets/fonts/Satoshi-Bold.ttf'),
+  });
+
   useEffect(() => {
     const boot = async () => {
       const [done] = await Promise.all([
         checkOnboardingDone(),
         (async () => {
-          try {
-            Memory.init().catch(() => {});
-            initUsage().catch(() => {});
-            await RunAnywhere.initialize({ environment: SDKEnvironment.Development });
-            LlamaCPP.register();
-            ONNX.register();
-            await registerDefaultModels();
-          } catch (error) {
-            console.error('Private AI: SDK initialization failed:', error);
-          }
+          Memory.init().catch(() => {});
+          initUsage().catch(() => {});
         })(),
       ]);
       setInitialRoute(done ? 'Chat' : 'Onboarding');
@@ -48,66 +40,29 @@ const App: React.FC = () => {
     boot();
   }, []);
 
-  if (!initialRoute) {
+  if (!initialRoute || (!fontsLoaded && !fontError)) {
     return <View style={{ flex: 1, backgroundColor: AppColors.primaryDark }} />;
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <ModelServiceProvider>
+    <ErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1 }}>
         <StatusBar barStyle="light-content" backgroundColor={AppColors.primaryDark} />
         <NavigationContainer>
           <Stack.Navigator
             initialRouteName={initialRoute}
             screenOptions={{
-              headerStyle: {
-                backgroundColor: AppColors.primaryDark,
-                elevation: 0,
-                shadowOpacity: 0,
-                borderBottomWidth: StyleSheet.hairlineWidth,
-                borderBottomColor: AppColors.border,
-              },
-              headerTintColor: AppColors.accentCyan,
-              headerTitleStyle: {
-                fontFamily: Fonts.satoshi,
-                fontSize: 18,
-                color: AppColors.textPrimary,
-              },
-              cardStyle: {
-                backgroundColor: AppColors.primaryDark,
-              },
+              headerShown: false,
+              cardStyle: { backgroundColor: AppColors.primaryDark },
               ...TransitionPresets.SlideFromRightIOS,
             }}
           >
-            <Stack.Screen
-              name="Onboarding"
-              component={OnboardingScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="Chat"
-              component={ChatScreen}
-              options={{ headerShown: false }}
-            />
-            <Stack.Screen
-              name="VoicePipeline"
-              component={VoicePipelineScreen}
-              options={{ title: 'Voice Assistant' }}
-            />
-            <Stack.Screen
-              name="SpeechToText"
-              component={SpeechToTextScreen}
-              options={{ title: 'Speech to Text' }}
-            />
-            <Stack.Screen
-              name="TextToSpeech"
-              component={TextToSpeechScreen}
-              options={{ title: 'Text to Speech' }}
-            />
+            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
+            <Stack.Screen name="Chat" component={ChatScreen} />
           </Stack.Navigator>
         </NavigationContainer>
-      </ModelServiceProvider>
-    </GestureHandlerRootView>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 };
 

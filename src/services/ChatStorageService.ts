@@ -1,17 +1,16 @@
 /**
- * ChatStorageService — persists chat sessions to the device's local filesystem.
+ * ChatStorageService — persists chat sessions to AsyncStorage.
  *
  * Storage layout:
- *   {DocumentDirectoryPath}/sessions/index.json      — list of all sessions (id, title, timestamps)
- *   {DocumentDirectoryPath}/sessions/session_{id}.json — full message array per session
+ *   '@privateai/sessions_index'      — list of all sessions (id, title, timestamps)
+ *   '@privateai/session_{id}'        — full message array per session
  *
- * Nothing leaves the device. This is all RNFS (already a native dep, no rebuild).
+ * Nothing leaves the device.
  */
-import RNFS from 'react-native-fs';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { ChatMessage } from '../components/ChatMessageBubble';
 
-const SESSIONS_DIR = `${RNFS.DocumentDirectoryPath}/sessions`;
-const INDEX_FILE = `${SESSIONS_DIR}/index.json`;
+const INDEX_KEY = '@privateai/sessions_index';
 
 export interface ChatSession {
   id: string;
@@ -25,23 +24,18 @@ export interface ChatSessionFull extends ChatSession {
   messages: ChatMessage[];
 }
 
-function sessionPath(id: string): string {
-  return `${SESSIONS_DIR}/session_${id}.json`;
+function sessionKey(id: string): string {
+  return `@privateai/session_${id}`;
 }
 
 function genId(): string {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
-async function ensureDir(): Promise<void> {
-  const exists = await RNFS.exists(SESSIONS_DIR);
-  if (!exists) await RNFS.mkdir(SESSIONS_DIR);
-}
-
 async function readIndex(): Promise<ChatSession[]> {
   try {
-    if (!(await RNFS.exists(INDEX_FILE))) return [];
-    const raw = await RNFS.readFile(INDEX_FILE, 'utf8');
+    const raw = await AsyncStorage.getItem(INDEX_KEY);
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
   } catch {
@@ -50,14 +44,13 @@ async function readIndex(): Promise<ChatSession[]> {
 }
 
 async function writeIndex(sessions: ChatSession[]): Promise<void> {
-  await RNFS.writeFile(INDEX_FILE, JSON.stringify(sessions), 'utf8');
+  await AsyncStorage.setItem(INDEX_KEY, JSON.stringify(sessions));
 }
 
 /**
  * Load all session summaries, sorted newest first.
  */
 export async function loadSessions(): Promise<ChatSession[]> {
-  await ensureDir();
   const sessions = await readIndex();
   return sessions.sort((a, b) => b.updatedAt - a.updatedAt);
 }
@@ -67,9 +60,8 @@ export async function loadSessions(): Promise<ChatSession[]> {
  */
 export async function loadSession(id: string): Promise<ChatSessionFull | null> {
   try {
-    const path = sessionPath(id);
-    if (!(await RNFS.exists(path))) return null;
-    const raw = await RNFS.readFile(path, 'utf8');
+    const raw = await AsyncStorage.getItem(sessionKey(id));
+    if (!raw) return null;
     const parsed = JSON.parse(raw);
     // Dates are serialized as strings — restore them.
     if (parsed.messages) {
@@ -88,8 +80,7 @@ export async function loadSession(id: string): Promise<ChatSessionFull | null> {
  * Save (create or update) a session.
  */
 export async function saveSession(session: ChatSessionFull): Promise<void> {
-  await ensureDir();
-  await RNFS.writeFile(sessionPath(session.id), JSON.stringify(session), 'utf8');
+  await AsyncStorage.setItem(sessionKey(session.id), JSON.stringify(session));
 
   const index = await readIndex();
   const summary: ChatSession = {
@@ -113,8 +104,7 @@ export async function saveSession(session: ChatSessionFull): Promise<void> {
  */
 export async function deleteSession(id: string): Promise<void> {
   try {
-    const path = sessionPath(id);
-    if (await RNFS.exists(path)) await RNFS.unlink(path);
+    await AsyncStorage.removeItem(sessionKey(id));
   } catch { /* ignore */ }
   const index = await readIndex();
   await writeIndex(index.filter(s => s.id !== id));

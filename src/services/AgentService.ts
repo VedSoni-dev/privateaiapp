@@ -20,8 +20,7 @@
  *   • datetime      — current date/time (always injected, free)
  */
 import * as Memory from './MemoryService';
-import { webSearch } from './WebSearchService';
-import { buildAttachmentBlock, type Attachment } from './AttachmentService';
+import { webSearch, planSearch } from './WebSearchService';
 import { chatComplete, chatStream, type ChatMessage } from './BackendClient';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -45,7 +44,6 @@ export interface PrepareTurnOptions {
   history: AgentMessage[];
   userText: string;
   webEnabled: boolean;
-  attachments?: Attachment[];
   onStatus?: (status: StatusEvent) => void;
 }
 
@@ -139,13 +137,10 @@ function runMemoryTool(userText: string, history: AgentMessage[], onStatus?: Pre
 
 // ── System prompt builder from local (non-tool-call) context ─────────────────
 
-function buildSystem(memory: ToolCall | null, attachments: Attachment[]): string {
+function buildSystem(memory: ToolCall | null): string {
   let system = PERSONA;
   system += `\n\n## Current date and time\n${datetimeBlock()}`;
 
-  if (attachments.length > 0) {
-    system += buildAttachmentBlock(attachments);
-  }
   if (memory) {
     system += `\n\n## What I remember about this user\n${memory.result}`;
   }
@@ -158,10 +153,10 @@ function buildSystem(memory: ToolCall | null, attachments: Attachment[]): string
 // message array ready to be streamed for the user-facing answer.
 
 export async function prepareTurn(opts: PrepareTurnOptions): Promise<PreparedTurn> {
-  const { history, userText, webEnabled, attachments = [], onStatus } = opts;
+  const { history, userText, webEnabled, onStatus } = opts;
 
   const memoryCall = runMemoryTool(userText, history, onStatus);
-  const system = buildSystem(memoryCall, attachments);
+  const system = buildSystem(memoryCall);
 
   const historyMessages = trimHistory(toBackendMessages(history));
   const baseMessages: ChatMessage[] = [
@@ -173,20 +168,34 @@ export async function prepareTurn(opts: PrepareTurnOptions): Promise<PreparedTur
   const toolCalls: ToolCall[] = [];
   let finalMessages = baseMessages;
 
+  // Search costs a full model round-trip (1-2s) just to decide SEARCH/NONE,
+  // so it only runs when the local recency heuristic says the message smells
+  // like it needs live info. Casual chat ("explain X", "write me Y") skips
+  // straight to streaming — that's most messages, and they get ~2s faster.
   if (webEnabled) {
-    try {
-      const decisionMessages: ChatMessage[] = [
-        { role: 'system', content: SEARCH_DECISION_SYSTEM },
-        { role: 'user', content: userText },
-      ];
-      const decision = await chatComplete(decisionMessages, {
-        maxTokens: 250,
-        temperature: 0.1,
-      });
+    const heuristicQuery = await planSearch(userText);
+    if (heuristicQuery) {
+      let query: string | null = null;
+      try {
+        const decisionMessages: ChatMessage[] = [
+          { role: 'system', content: SEARCH_DECISION_SYSTEM },
+          { role: 'user', content: userText },
+        ];
+        const decision = await chatComplete(decisionMessages, {
+          maxTokens: 250,
+          temperature: 0.1,
+          timeoutMs: 12_000,
+        });
+        const match = decision.text.match(SEARCH_LINE_RE);
+        query = match ? match[1].trim().slice(0, 200) : null;
+      } catch (e) {
+        // Decision pass is advisory. The heuristic already fired, so fail
+        // open: search with the raw user text rather than skipping entirely.
+        console.warn('[Agent] decision failed, searching with heuristic query:', e);
+        query = heuristicQuery;
+      }
 
-      const match = decision.text.match(SEARCH_LINE_RE);
-      if (match) {
-        const query = match[1].trim().slice(0, 200);
+      if (query) {
         const searchResult = await runWebSearchTool(query, onStatus);
         toolCalls.push(searchResult);
 
@@ -200,8 +209,6 @@ export async function prepareTurn(opts: PrepareTurnOptions): Promise<PreparedTur
           { role: 'user', content: userText },
         ];
       }
-    } catch (e) {
-      console.warn('[Agent] tool-call decision failed, answering without search:', e);
     }
   }
 
@@ -255,6 +262,11 @@ export async function learnInBackground(
   onUpdate?: (info: { added: string[]; dreamed: boolean }) => void,
 ): Promise<void> {
   if (brainBusy) return;
+  // Memory extraction is a backend call per exchange. Durable personal facts
+  // essentially always come with first-person language or some substance —
+  // skip the round trip for "thanks", "lol ok", short factual questions, etc.
+  const worthLearning = userText.length >= 60 || /\b(i|i'm|im|my|me|mine|we|our)\b/i.test(userText);
+  if (!worthLearning) return;
   brainBusy = true;
   try {
     const added = await Memory.learnFromExchange(userText, assistantText);

@@ -1,6 +1,5 @@
 export * from './FeatureCard';
-export * from './ModelLoaderWidget';
 export * from './ChatMessageBubble';
-export * from './AudioVisualizer';
 export * from './ThinkingIndicator';
 export * from './PaywallModal';
+export * from './ErrorBoundary';

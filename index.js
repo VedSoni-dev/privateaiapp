@@ -1,10 +1,6 @@
-/**
- * @format
- */
 import 'react-native-gesture-handler';
-import {AppRegistry} from 'react-native';
+import { registerRootComponent } from 'expo';
 import App from './src/App';
 
-const appName = require('./app.config.js').name;
-
-AppRegistry.registerComponent(appName, () => App);
+// registerRootComponent handles both Expo Go and standalone builds.
+registerRootComponent(App);

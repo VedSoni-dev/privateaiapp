@@ -2,9 +2,9 @@
  * DeviceId — a random, persistent per-install identifier.
  * Used only for backend rate limiting; carries no personal information.
  */
-import RNFS from 'react-native-fs';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const FILE = `${RNFS.DocumentDirectoryPath}/device_id.txt`;
+const KEY = '@privateai/device_id';
 
 let cached: string | null = null;
 
@@ -16,12 +16,13 @@ function randomId(): string {
 export async function getDeviceId(): Promise<string> {
   if (cached) return cached;
   try {
-    if (await RNFS.exists(FILE)) {
-      cached = (await RNFS.readFile(FILE, 'utf8')).trim();
+    const existing = await AsyncStorage.getItem(KEY);
+    if (existing) {
+      cached = existing.trim();
       if (cached) return cached;
     }
   } catch {}
   cached = randomId();
-  try { await RNFS.writeFile(FILE, cached, 'utf8'); } catch {}
+  try { await AsyncStorage.setItem(KEY, cached); } catch {}
   return cached;
 }

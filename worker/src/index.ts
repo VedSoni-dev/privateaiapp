@@ -9,6 +9,12 @@ export interface Env {
   BRAVE_KEY?: string;
 }
 
+// Render's free tier spins the backend down after ~15 min idle, which turns
+// a user's first message after a gap into a 20-30s (or failed) cold start.
+// A cron trigger (see wrangler.jsonc) pings its /health endpoint often enough
+// to keep it warm.
+const BACKEND_HEALTH_URL = 'https://private-ai-backend.onrender.com/health';
+
 interface SearchItem {
   title: string;
   url: string;
@@ -162,8 +168,11 @@ async function handleSearch(query: string, env: Env): Promise<Response> {
 
   const top = items.slice(0, PAGES_TO_READ + 1);
 
-  // 2. Fetch top pages in parallel with 5s budget
-  const urls = top.slice(0, PAGES_TO_READ).map(it => it.url).filter(Boolean);
+  // 2. Fetch top pages in parallel with 5s budget. Keep this aligned 1:1 with
+  // `top` by index — fetchJinaPage already returns null for empty/invalid
+  // urls, so don't filter here (filtering would shift indices and attribute
+  // one source's fetched content to a different source's title/domain).
+  const urls = top.slice(0, PAGES_TO_READ).map(it => it.url);
   const pageContents = await fetchPagesParallel(urls);
 
   // 3. Build result text
@@ -213,5 +222,13 @@ export default {
     }
 
     return new Response('Not found', { status: 404 });
+  },
+
+  async scheduled(_event: ScheduledEvent, _env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(
+      fetch(BACKEND_HEALTH_URL).catch(() => {
+        /* best-effort keep-warm ping; a miss just means the next one tries again */
+      }),
+    );
   },
 };

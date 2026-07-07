@@ -8,12 +8,12 @@
  *  - Auto-compacts long conversations so nothing important gets dropped
  *
  * All of it runs through the same on-device model. Nothing leaves the device.
- * Persistence uses react-native-fs (already a native dependency, no rebuild).
+ * Persistence uses AsyncStorage (Expo Go compatible, no native filesystem access).
  */
-import RNFS from 'react-native-fs';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { chatComplete } from './BackendClient';
 
-const FILE = `${RNFS.DocumentDirectoryPath}/private-ai-memory.json`;
+const KEY = '@privateai/memory';
 
 const MAX_FACTS = 80;
 
@@ -127,7 +127,7 @@ async function persist(): Promise<void> {
   // Serialize writes so concurrent learns don't clobber the file.
   persistQueue = persistQueue.then(async () => {
     try {
-      await RNFS.writeFile(FILE, JSON.stringify(store), 'utf8');
+      await AsyncStorage.setItem(KEY, JSON.stringify(store));
     } catch {
       /* ignore */
     }
@@ -139,8 +139,8 @@ export async function init(): Promise<void> {
   if (loaded) return;
   loaded = true;
   try {
-    if (await RNFS.exists(FILE)) {
-      const raw = await RNFS.readFile(FILE, 'utf8');
+    const raw = await AsyncStorage.getItem(KEY);
+    if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && Array.isArray(parsed.facts)) store = parsed;
     }

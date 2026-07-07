@@ -3,6 +3,12 @@
   "name": "private-ai-search",
   "main": "src/index.ts",
   "compatibility_date": "2026-06-29",
-  "compatibility_flags": ["nodejs_compat"]
+  "compatibility_flags": ["nodejs_compat"],
+  // Pings the Render backend every 10 min so its free-tier instance never
+  // spins down from idling — avoids a 20-30s cold start on the user's first
+  // message after a gap.
+  "triggers": {
+    "crons": ["*/10 * * * *"]
+  }
   // BRAVE_KEY is stored as a secret: npx wrangler secret put BRAVE_KEY
 }

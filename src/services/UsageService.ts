@@ -1,10 +1,10 @@
 /**
  * UsageService — tracks daily free-tier usage.
- * Resets at midnight local time. Persisted to RNFS so it survives app restarts.
+ * Resets at midnight local time. Persisted to AsyncStorage so it survives app restarts.
  */
-import RNFS from 'react-native-fs';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const FILE = `${RNFS.DocumentDirectoryPath}/usage.json`;
+const KEY = '@privateai/usage';
 
 export const FREE_DAILY_LIMIT = 20;
 
@@ -26,9 +26,8 @@ async function load(): Promise<void> {
   if (loaded) return;
   loaded = true;
   try {
-    const exists = await RNFS.exists(FILE);
-    if (!exists) return;
-    const raw = await RNFS.readFile(FILE, 'utf8');
+    const raw = await AsyncStorage.getItem(KEY);
+    if (!raw) return;
     const parsed: UsageStore = JSON.parse(raw);
     // Reset count if it's a new day
     store = parsed.date === today()
@@ -38,7 +37,7 @@ async function load(): Promise<void> {
 }
 
 async function save(): Promise<void> {
-  try { await RNFS.writeFile(FILE, JSON.stringify(store), 'utf8'); } catch {}
+  try { await AsyncStorage.setItem(KEY, JSON.stringify(store)); } catch {}
 }
 
 export async function initUsage(): Promise<void> {

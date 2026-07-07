@@ -20,7 +20,7 @@ import {
   Image,
 } from 'react-native';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
-import LinearGradient from 'react-native-linear-gradient';
+import { LinearGradient } from 'expo-linear-gradient';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppColors, Fonts } from '../theme';
@@ -28,7 +28,6 @@ import { ChatMessageBubble, ChatMessage, ThinkingIndicator, PaywallModal } from 
 import { RootStackParamList } from '../navigation/types';
 import { prepareTurn, learnInBackground, streamTurn } from '../services/AgentService';
 import * as SafeHaptics from '../services/HapticsService';
-import { pickAndExtract, type Attachment } from '../services/AttachmentService';
 import * as Memory from '../services/MemoryService';
 import * as ChatStorage from '../services/ChatStorageService';
 import type { ChatSession } from '../services/ChatStorageService';
@@ -39,6 +38,29 @@ type ChatScreenProps = {
 };
 
 const PANEL_WIDTH = Math.min(340, Dimensions.get('window').width * 0.85);
+
+// Raw fetch/backend errors ("TypeError: Network request failed", "backend
+// chat failed: 502") read as broken/scary to a user. Map the common cases to
+// something a person would actually understand; log the raw error for
+// debugging instead of surfacing it.
+function friendlyErrorText(error: unknown): string {
+  const raw = String((error as Error)?.message ?? error);
+  console.warn('[Chat] turn failed:', raw);
+
+  if (/network request failed|failed to fetch|internet connection/i.test(raw)) {
+    return "Can't reach the server — check your internet connection and try again.";
+  }
+  if (/\b429\b/.test(raw)) {
+    return "You're sending messages a bit fast — wait a few seconds and try again.";
+  }
+  if (/\b(502|503|504)\b/.test(raw)) {
+    return 'The server is waking up or briefly overloaded — try again in a few seconds.';
+  }
+  if (/timed out|timeout/i.test(raw)) {
+    return 'That took too long to respond. Try again.';
+  }
+  return "Something went wrong on our end. Try again — if it keeps happening, it's not you.";
+}
 
 export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
   const insets = useSafeAreaInsets();
@@ -54,8 +76,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
   const [showPaywall, setShowPaywall] = useState(false);
   const [usage, setUsage] = useState(getUsage());
   const [menuOpen, setMenuOpen] = useState(false);
-  const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [isAttaching, setIsAttaching] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const currentSessionRef = useRef<ChatStorage.ChatSessionFull>(ChatStorage.createSession());
   const flatListRef = useRef<FlatList>(null);
@@ -113,32 +133,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
     ]);
   };
 
-  const handleAttach = async () => {
-    if (isAttaching) return;
-    try {
-      setIsAttaching(true);
-      const picked = await pickAndExtract();
-      if (picked.length) {
-        setAttachments(prev => [...prev, ...picked]);
-        const failed = picked.filter(p => p.error);
-        if (failed.length) {
-          Alert.alert(
-            "Couldn't read some files",
-            failed.map(f => `• ${f.name}: ${f.error}`).join('\n'),
-          );
-        }
-      }
-    } catch (e) {
-      Alert.alert('Attach failed', String(e));
-    } finally {
-      setIsAttaching(false);
-    }
-  };
-
-  const removeAttachment = (id: string) => {
-    setAttachments(prev => prev.filter(a => a.id !== id));
-  };
-
   useEffect(() => {
     initUsage().then(() => setUsage(getUsage()));
   }, []);
@@ -157,55 +151,51 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
     }).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    if (messages.length > 0 || currentResponse) {
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+  // Auto-scroll follows the stream only while the user is near the bottom.
+  // If they scroll up to re-read something mid-stream, stop yanking them down;
+  // scrolling back to the bottom re-engages following.
+  const autoScrollRef = useRef(true);
+  const onListScroll = (e: { nativeEvent: { contentOffset: { y: number }; contentSize: { height: number }; layoutMeasurement: { height: number } } }) => {
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    const distFromBottom = contentSize.height - contentOffset.y - layoutMeasurement.height;
+    autoScrollRef.current = distFromBottom < 120;
+  };
+  const onListContentSizeChange = () => {
+    if (autoScrollRef.current) {
+      flatListRef.current?.scrollToEnd({ animated: true });
     }
-  }, [messages, currentResponse]);
+  };
 
   const handleSend = async (overrideText?: string) => {
     void SafeHaptics.impactLight();
-    const typed = (overrideText ?? inputText).trim();
-    const turnAttachments = overrideText ? [] : attachments;
-    const hasAttach = turnAttachments.length > 0;
-    if ((!typed && !hasAttach) || isGenerating) return;
+    const text = (overrideText ?? inputText).trim();
+    if (!text || isGenerating) return;
 
     if (!canSendMessage()) {
       setShowPaywall(true);
       return;
     }
 
-    const effectiveUserText =
-      typed || 'Please read the attached file(s) and summarize the key points.';
-    const displayText = hasAttach
-      ? `${typed ? typed + '\n\n' : ''}${turnAttachments
-          .map(a => `📎 ${a.name}`)
-          .join('\n')}`
-      : typed;
-
     const userMessage: ChatMessage = {
-      text: displayText,
+      text,
       isUser: true,
       timestamp: new Date(),
     };
     const history = messages;
+    autoScrollRef.current = true; // sending always snaps focus to the reply
     setMessages(prev => [...prev, userMessage]);
     setInputText('');
-    setAttachments([]);
     setIsGenerating(true);
     setIsThinking(true);
-    setThinkingLabel(hasAttach ? 'Reading files' : 'Thinking');
+    setThinkingLabel('Thinking');
     setCurrentResponse('');
     setStatusText('');
 
     try {
       const { messages: preparedMessages, toolCalls } = await prepareTurn({
         history,
-        userText: effectiveUserText,
+        userText: text,
         webEnabled,
-        attachments: turnAttachments,
         onStatus: status => {
           if (status.type === 'searching') {
             setThinkingLabel(`Searching "${status.query}"`);
@@ -218,7 +208,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
       });
 
       setIsThinking(false);
-      void recordMessage().then(() => setUsage(getUsage()));
       const hasSearch = toolCalls.some(t => t.tool === 'web_search' && t.found);
       console.log(
         `[Chat] streaming hasSearch=${hasSearch} webEnabled=${webEnabled} history=${history.length}`,
@@ -233,6 +222,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
           streamCancelRef.current = cancel;
         },
         onToken: accumulated => {
+          if (!responseRef.current) void SafeHaptics.selection(); // first token tick
           responseRef.current = accumulated;
           setCurrentResponse(accumulated);
         },
@@ -256,7 +246,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
         // Auto-save session after each completed exchange.
         const session = currentSessionRef.current;
         if (session.title === 'New chat' && userMessage.text) {
-          session.title = ChatStorage.autoTitle(effectiveUserText);
+          session.title = ChatStorage.autoTitle(text);
         }
         session.messages = next;
         session.updatedAt = Date.now();
@@ -269,21 +259,32 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
       setCurrentResponse('');
       responseRef.current = '';
       setIsGenerating(false);
+      void recordMessage().then(() => setUsage(getUsage()));
 
       // Learn durable facts from this exchange in the background.
-      void learnInBackground(effectiveUserText, replyText);
+      void learnInBackground(text, replyText);
     } catch (error) {
+      setIsThinking(false);
+      setIsGenerating(false);
+      setStatusText('');
+      // A user-initiated stop rejects the pending streamTurn() with an abort
+      // error — handleStop() already appended the cancelled-response bubble,
+      // so don't also show a spurious "Error: AbortError" one on top of it.
+      const isAbort = error instanceof Error && (error.name === 'AbortError' || /abort/i.test(error.message));
+      if (isAbort) {
+        setCurrentResponse('');
+        return;
+      }
       const errorMessage: ChatMessage = {
-        text: `Error: ${error}`,
+        text: friendlyErrorText(error),
         isUser: false,
         timestamp: new Date(),
         isError: true,
       };
       setMessages(prev => [...prev, errorMessage]);
       setCurrentResponse('');
-      setStatusText('');
-      setIsThinking(false);
-      setIsGenerating(false);
+      // Put the failed message back in the input so retry is one tap away.
+      setInputText(prev => prev || text);
     }
   };
 
@@ -376,11 +377,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
     [isGenerating, messages.length, handleLongPressMessage],
   );
 
-  const go = (screen: 'VoicePipeline' | 'SpeechToText' | 'TextToSpeech') => {
-    closeMenu();
-    navigation.navigate(screen);
-  };
-
   const renderSuggestionChip = (icon: string, text: string) => (
     <TouchableOpacity
       key={text}
@@ -462,6 +458,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
             keyExtractor={(item, index) => item.text === '__thinking__' ? 'thinking' : index.toString()}
             contentContainerStyle={styles.messageList}
             showsVerticalScrollIndicator={false}
+            onScroll={onListScroll}
+            scrollEventThrottle={64}
+            onContentSizeChange={onListContentSizeChange}
             removeClippedSubviews
             maxToRenderPerBatch={10}
             windowSize={5}
@@ -476,35 +475,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
               <Text style={styles.statusText} numberOfLines={1}>{statusText}</Text>
             </View>
           )}
-          {attachments.length > 0 && (
-            <View style={styles.attachRow}>
-              {attachments.map(a => (
-                <View
-                  key={a.id}
-                  style={[styles.attachChip, !!a.error && styles.attachChipError]}
-                >
-                  <Text style={styles.attachChipIcon}>
-                    {a.error ? '⚠️' : a.kind === 'pdf' ? '📄' : '📃'}
-                  </Text>
-                  <Text style={styles.attachChipName} numberOfLines={1}>
-                    {a.name}
-                  </Text>
-                  <TouchableOpacity onPress={() => removeAttachment(a.id)} hitSlop={8}>
-                    <Text style={styles.attachChipX}>✕</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-          )}
           <View style={styles.inputWrapper}>
-            <TouchableOpacity
-              onPress={handleAttach}
-              disabled={isGenerating || isAttaching}
-              style={styles.attachButton}
-              accessibilityLabel="Attach file"
-            >
-              <Text style={styles.attachIcon}>{isAttaching ? '…' : '+'}</Text>
-            </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setWebEnabled(prev => !prev)}
               style={[styles.globeButton, webEnabled && styles.globeButtonActive]}
@@ -518,7 +489,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
               value={inputText}
               onChangeText={setInputText}
               onSubmitEditing={() => handleSend()}
-              editable={!isGenerating}
               multiline
             />
             {isGenerating ? (
@@ -645,23 +615,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
               <Text style={styles.panelRowText}>What AI remembers</Text>
             </TouchableOpacity>
 
-            <Text style={styles.panelSection}>VOICE & SPEECH</Text>
-            <TouchableOpacity style={styles.panelRow} onPress={() => go('VoicePipeline')}>
-              <Text style={styles.panelRowIcon}>🎙</Text>
-              <Text style={styles.panelRowText}>Voice assistant</Text>
-              <Text style={styles.panelChevron}>›</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.panelRow} onPress={() => go('SpeechToText')}>
-              <Text style={styles.panelRowIcon}>🎤</Text>
-              <Text style={styles.panelRowText}>Speech to text</Text>
-              <Text style={styles.panelChevron}>›</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.panelRow} onPress={() => go('TextToSpeech')}>
-              <Text style={styles.panelRowIcon}>🔊</Text>
-              <Text style={styles.panelRowText}>Text to speech</Text>
-              <Text style={styles.panelChevron}>›</Text>
-            </TouchableOpacity>
-
             {!usage.isPro && (
               <TouchableOpacity
                 style={[styles.panelRow, styles.upgradeRow]}
@@ -673,7 +626,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
                     Upgrade to Pro
                   </Text>
                   <Text style={styles.panelRowSub}>
-                    Unlimited messages · Cloud AI coming soon
+                    Unlimited messages, no daily cap
                   </Text>
                 </View>
                 <Text style={[styles.panelChevron, { color: AppColors.accentCyan }]}>›</Text>
@@ -760,17 +713,6 @@ const styles = StyleSheet.create({
   },
   statusDot:  { width: 5, height: 5, borderRadius: 3, backgroundColor: AppColors.accentCyan },
   statusText: { fontSize: 12, color: AppColors.accentCyan, fontWeight: '500' },
-  attachRow:  { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingBottom: 8, paddingHorizontal: 2 },
-  attachChip: {
-    flexDirection: 'row', alignItems: 'center',
-    maxWidth: 220, paddingLeft: 10, paddingRight: 8, paddingVertical: 6,
-    backgroundColor: AppColors.surfaceCard,
-    borderRadius: 8, borderWidth: 1, borderColor: AppColors.border, gap: 6,
-  },
-  attachChipError: { borderColor: AppColors.error + '44' },
-  attachChipIcon:  { fontSize: 13 },
-  attachChipName:  { flexShrink: 1, fontSize: 12.5, color: AppColors.textPrimary },
-  attachChipX:     { fontSize: 11, color: AppColors.textMuted, paddingHorizontal: 2 },
 
   // Compound input row — wraps input + action buttons
   inputWrapper: {
@@ -779,11 +721,6 @@ const styles = StyleSheet.create({
     borderRadius: 14, borderWidth: 1, borderColor: AppColors.border,
     paddingHorizontal: 4, paddingVertical: 4, gap: 2,
   },
-  attachButton: {
-    width: 36, height: 36, borderRadius: 8,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  attachIcon: { fontSize: 20, color: AppColors.textMuted },
   globeButton: {
     width: 36, height: 36, borderRadius: 8,
     justifyContent: 'center', alignItems: 'center',
@@ -821,7 +758,7 @@ const styles = StyleSheet.create({
   upgradeLink:  { fontSize: 11, color: AppColors.accentCyan, fontWeight: '600' },
 
   // ── Backdrop + panel ─────────────────────────────────────────────
-  backdrop: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.6)' },
+  backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)' },
   panel: {
     position: 'absolute', top: 0, bottom: 0, right: 0,
     width: PANEL_WIDTH,

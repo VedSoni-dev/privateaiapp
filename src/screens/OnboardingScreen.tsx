@@ -10,16 +10,16 @@ import {
   Image,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import RNFS from 'react-native-fs';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppColors, Fonts } from '../theme';
 import { RootStackParamList } from '../navigation/types';
 
 const { width: W } = Dimensions.get('window');
-const ONBOARDING_FLAG = `${RNFS.DocumentDirectoryPath}/onboarding-done.json`;
 
 export async function checkOnboardingDone(): Promise<boolean> {
   try {
-    return await RNFS.exists(ONBOARDING_FLAG);
+    const v = await AsyncStorage.getItem('@privateai/onboarding_done');
+    return v === '1';
   } catch {
     return false;
   }
@@ -27,7 +27,7 @@ export async function checkOnboardingDone(): Promise<boolean> {
 
 async function markOnboardingDone(): Promise<void> {
   try {
-    await RNFS.writeFile(ONBOARDING_FLAG, '1', 'utf8');
+    await AsyncStorage.setItem('@privateai/onboarding_done', '1');
   } catch {}
 }
 

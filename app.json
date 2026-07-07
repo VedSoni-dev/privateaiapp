@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "Private AI",
+    "slug": "private-ai",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon-1024.png",
+    "scheme": "privateai",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#09090b"
+    },
+    "ios": {
+      "bundleIdentifier": "inc.neocast.privateai",
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "inc.neocast.privateai",
+      "adaptiveIcon": {
+        "backgroundColor": "#09090b"
+      }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "6ebf0c81-ab43-48e3-ac07-6d59087788be"
+      }
+    },
+    "plugins": [
+      "expo-font",
+      "expo-status-bar"
+    ]
+  }
+}
