@@ -27,7 +27,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppColors, Fonts } from '../theme';
 import { ChatMessageBubble, ChatMessage, ThinkingIndicator, PaywallModal } from '../components';
 import { RootStackParamList } from '../navigation/types';
-import { prepareTurn, learnInBackground, streamTurn } from '../services/AgentService';
+import { prepareTurn, learnInBackground, streamTurn, type LearnedFact } from '../services/AgentService';
+import { getPersonalizedSuggestions, type SuggestionChip } from '../services/SuggestionService';
 import * as SafeHaptics from '../services/HapticsService';
 import * as Memory from '../services/MemoryService';
 import * as ChatStorage from '../services/ChatStorageService';
@@ -76,6 +77,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
 
   const [showPaywall, setShowPaywall] = useState(false);
   const [usage, setUsage] = useState(getUsage());
+  // "Memory moment" — the transparency chip shown when the AI learns a fact.
+  const [memoryMoment, setMemoryMoment] = useState<{ ids: string[]; label: string } | null>(null);
+  const memoryMomentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [personalChips, setPersonalChips] = useState<SuggestionChip[] | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [sessionSearch, setSessionSearch] = useState('');
@@ -122,7 +127,33 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
 
   useEffect(() => {
     initUsage().then(() => setUsage(getUsage()));
+    // Personalized empty-state chips, generated from memory (cached daily).
+    getPersonalizedSuggestions().then(chips => { if (chips) setPersonalChips(chips); }).catch(() => {});
+    return () => {
+      if (memoryMomentTimer.current) clearTimeout(memoryMomentTimer.current);
+    };
   }, []);
+
+  const showMemoryMoment = (added: LearnedFact[], dreamed: boolean) => {
+    const label = added.length
+      ? `Remembered: ${added[0].text}${added.length > 1 ? ` (+${added.length - 1} more)` : ''}`
+      : dreamed
+        ? 'Tidied up my memories'
+        : '';
+    if (!label) return;
+    setMemoryMoment({ ids: added.map(f => f.id), label });
+    AccessibilityInfo.announceForAccessibility(label);
+    if (memoryMomentTimer.current) clearTimeout(memoryMomentTimer.current);
+    memoryMomentTimer.current = setTimeout(() => setMemoryMoment(null), 8000);
+  };
+
+  const forgetMemoryMoment = () => {
+    if (memoryMoment) {
+      for (const id of memoryMoment.ids) void Memory.deleteFact(id);
+    }
+    setMemoryMoment(null);
+    void SafeHaptics.selection();
+  };
 
   // Load session list and restore the most recent session on mount.
   useEffect(() => {
@@ -250,8 +281,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
       AccessibilityInfo.announceForAccessibility('Response ready');
       void recordMessage().then(() => setUsage(getUsage()));
 
-      // Learn durable facts from this exchange in the background.
-      void learnInBackground(text, replyText);
+      void SafeHaptics.notificationSuccess(); // answer-complete thud
+
+      // Learn durable facts from this exchange in the background; surface
+      // what was learned as a dismissable "memory moment" chip.
+      void learnInBackground(text, replyText, ({ added, dreamed }) => {
+        showMemoryMoment(added, dreamed);
+      });
     } catch (error) {
       setIsThinking(false);
       setIsGenerating(false);
@@ -496,10 +532,17 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
             />
             <Text style={styles.emptyTitle}>What can I{'\n'}help you with?</Text>
             <View style={styles.suggestionsContainer}>
-              {renderSuggestionChip('✍️', 'Write a cover letter for a software role')}
-              {renderSuggestionChip('📰', "What's in the news today?")}
-              {renderSuggestionChip('💡', 'Explain how transformers work in AI')}
-              {renderSuggestionChip('🗓️', 'Help me plan my week')}
+              {personalChips
+                ? [
+                    ...personalChips.map(c => renderSuggestionChip(c.icon, c.text)),
+                    renderSuggestionChip('📰', "What's in the news today?"),
+                  ]
+                : [
+                    renderSuggestionChip('✍️', 'Write a cover letter for a software role'),
+                    renderSuggestionChip('📰', "What's in the news today?"),
+                    renderSuggestionChip('💡', 'Explain how transformers work in AI'),
+                    renderSuggestionChip('🗓️', 'Help me plan my week'),
+                  ]}
             </View>
           </View>
         ) : (
@@ -532,6 +575,31 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
         )}
 
         <View style={styles.inputContainer}>
+          {memoryMoment && (
+            <View style={styles.memoryMomentRow}>
+              <Text style={styles.memoryMomentText} numberOfLines={1}>
+                {memoryMoment.ids.length > 0 ? '🧠 ' : '🌙 '}{memoryMoment.label}
+              </Text>
+              {memoryMoment.ids.length > 0 && (
+                <TouchableOpacity
+                  onPress={forgetMemoryMoment}
+                  accessibilityRole="button"
+                  accessibilityLabel="Forget this memory"
+                  hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                >
+                  <Text style={styles.memoryMomentUndo}>Forget</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                onPress={() => setMemoryMoment(null)}
+                accessibilityRole="button"
+                accessibilityLabel="Dismiss"
+                hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+              >
+                <Text style={styles.memoryMomentDismiss}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          )}
           {!!statusText && (
             <View style={styles.statusRow}>
               <View style={styles.statusDot} />
@@ -921,6 +989,30 @@ const styles = StyleSheet.create({
   disclaimer:   { fontSize: 11, color: AppColors.textMuted },
   upgradeLink:  { fontSize: 11, color: AppColors.accentCyan, fontWeight: '600' },
   aiNotice:     { fontSize: 10.5, color: AppColors.textMuted, textAlign: 'center', marginTop: 3 },
+
+  // ── Memory moment chip ───────────────────────────────────────────
+  memoryMomentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    alignSelf: 'center',
+    maxWidth: '96%',
+    backgroundColor: AppColors.surfaceCard,
+    borderColor: AppColors.border,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    marginBottom: 8,
+    shadowColor: AppColors.textPrimary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  memoryMomentText: { flexShrink: 1, fontSize: 12.5, color: AppColors.textSecondary },
+  memoryMomentUndo: { fontSize: 12.5, color: AppColors.accentCyan, fontWeight: '700' },
+  memoryMomentDismiss: { fontSize: 12, color: AppColors.textMuted, fontWeight: '600' },
 
   // ── Backdrop + panel ─────────────────────────────────────────────
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)' },

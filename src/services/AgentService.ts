@@ -261,31 +261,43 @@ export async function streamTurn(opts: StreamTurnOptions): Promise<StreamTurnRes
 
 // ── Background learning ───────────────────────────────────────────────────────
 
-let brainBusy = false;
+// Learns are serialized on a queue rather than dropped: the old busy-flag
+// approach silently skipped every exchange that finished while a slow
+// extraction call (e.g. a Render cold start) was still in flight — memory
+// looked "broken" because most exchanges never got learned at all.
+let learnQueue: Promise<void> = Promise.resolve();
+
+export interface LearnedFact {
+  id: string;
+  text: string;
+}
 
 export async function learnInBackground(
   userText: string,
   assistantText: string,
-  onUpdate?: (info: { added: string[]; dreamed: boolean }) => void,
+  onUpdate?: (info: { added: LearnedFact[]; dreamed: boolean }) => void,
 ): Promise<void> {
-  if (brainBusy) return;
   // Memory extraction is a backend call per exchange. Durable personal facts
   // essentially always come with first-person language or some substance —
   // skip the round trip for "thanks", "lol ok", short factual questions, etc.
   const worthLearning = userText.length >= 60 || /\b(i|i'm|im|my|me|mine|we|our)\b/i.test(userText);
   if (!worthLearning) return;
-  brainBusy = true;
-  try {
-    const added = await Memory.learnFromExchange(userText, assistantText);
-    let dreamed = false;
-    if (Memory.shouldDream()) {
-      await Memory.dream();
-      dreamed = true;
+  learnQueue = learnQueue.then(async () => {
+    try {
+      const added = await Memory.learnFromExchange(userText, assistantText);
+      let dreamed = false;
+      if (Memory.shouldDream()) {
+        await Memory.dream();
+        dreamed = true;
+      }
+      console.log(`[Agent] learn: +${added.length} fact(s)${dreamed ? ', dreamed' : ''} (total ${Memory.count()})`);
+      if (added.length || dreamed) {
+        onUpdate?.({ added: added.map(f => ({ id: f.id, text: f.text })), dreamed });
+      }
+    } catch (e) {
+      // Never crash the app, but never fail silently either.
+      console.warn('[Agent] memory learn failed:', e);
     }
-    if (added.length || dreamed) onUpdate?.({ added: added.map(f => f.text), dreamed });
-  } catch {
-    /* never crash the app */
-  } finally {
-    brainBusy = false;
-  }
+  });
+  return learnQueue;
 }
