@@ -30,6 +30,7 @@ import { RootStackParamList } from '../navigation/types';
 import { prepareTurn, learnInBackground, streamTurn, type LearnedFact } from '../services/AgentService';
 import { getPersonalizedSuggestions, type SuggestionChip } from '../services/SuggestionService';
 import { purchasePro, restorePurchases } from '../services/PurchaseService';
+import * as LiveActivity from '../services/LiveActivityService';
 import * as SafeHaptics from '../services/HapticsService';
 import * as Memory from '../services/MemoryService';
 import * as ChatStorage from '../services/ChatStorageService';
@@ -209,6 +210,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
     setThinkingLabel('Thinking');
     setCurrentResponse('');
     setStatusText('');
+    // Dynamic Island / lock screen progress if the user backgrounds the app.
+    LiveActivity.startAnswerActivity(text);
 
     try {
       const { messages: preparedMessages, toolCalls } = await prepareTurn({
@@ -283,6 +286,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
       void recordMessage().then(() => setUsage(getUsage()));
 
       void SafeHaptics.notificationSuccess(); // answer-complete thud
+      LiveActivity.completeAnswerActivity(replyText);
 
       // Learn durable facts from this exchange in the background; surface
       // what was learned as a dismissable "memory moment" chip.
@@ -297,6 +301,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
       // error — handleStop() already appended the cancelled-response bubble,
       // so don't also show a spurious "Error: AbortError" one on top of it.
       const isAbort = error instanceof Error && (error.name === 'AbortError' || /abort/i.test(error.message));
+      LiveActivity.endAnswerActivity(isAbort ? 'cancelled' : 'error');
       if (isAbort) {
         setCurrentResponse('');
         return;

@@ -104,8 +104,11 @@ Open, in priority order:
    replace `ALLOW_CLIENT_PRO`.
 2. Privacy nutrition labels in App Store Connect (policy exists: PRIVACY.md,
    linked from the paywall).
-3. Live Activities / Dynamic Island (needs dev-client build + widget
-   extension target — planned after the dev client is verified).
+3. Live Activities / Dynamic Island — CODE DONE, unverified until the first
+   dev-client build: `LiveActivityService.ts` (lazy-required) wraps the
+   deprecated-but-functional `expo-live-activity` 0.4.2 (last version that
+   supports SDK 54). On the next SDK upgrade (55+), swap it for the official
+   `expo-widgets`. Started on send, completed/errored with the stream.
 4. Crash reporting (`sentry-expo`) — needs a DSN from the user.
 5. App Attest / DeviceCheck to make device quotas non-spoofable.
 6. Real tests (jest isn't installed despite the `test` script).
