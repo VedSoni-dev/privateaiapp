@@ -29,6 +29,7 @@ import { ChatMessageBubble, ChatMessage, ThinkingIndicator, PaywallModal } from 
 import { RootStackParamList } from '../navigation/types';
 import { prepareTurn, learnInBackground, streamTurn, type LearnedFact } from '../services/AgentService';
 import { getPersonalizedSuggestions, type SuggestionChip } from '../services/SuggestionService';
+import { purchasePro, restorePurchases } from '../services/PurchaseService';
 import * as SafeHaptics from '../services/HapticsService';
 import * as Memory from '../services/MemoryService';
 import * as ChatStorage from '../services/ChatStorageService';
@@ -704,8 +705,27 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
         visible={showPaywall}
         onClose={() => setShowPaywall(false)}
         onSubscribe={() => {
-          // TODO: wire react-native-iap in next native build
-          Alert.alert('Coming soon', 'In-app purchase will be available in the next update.');
+          void purchasePro().then(result => {
+            setUsage(getUsage());
+            if (result.ok) {
+              setShowPaywall(false);
+              void SafeHaptics.notificationSuccess();
+              Alert.alert('Welcome to Pro', 'Unlimited messages are now unlocked.');
+            } else if (result.message) {
+              Alert.alert('Purchase', result.message);
+            }
+          });
+        }}
+        onRestore={() => {
+          void restorePurchases().then(result => {
+            setUsage(getUsage());
+            if (result.ok) {
+              setShowPaywall(false);
+              Alert.alert('Restored', 'Your Pro subscription is active again.');
+            } else if (result.message) {
+              Alert.alert('Restore', result.message);
+            }
+          });
         }}
         messagesUsed={usage.messages}
         limit={usage.limit}

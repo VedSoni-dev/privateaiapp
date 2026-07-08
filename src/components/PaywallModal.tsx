@@ -7,13 +7,19 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
+  Linking,
 } from 'react-native';
 import { AppColors, Fonts } from '../theme';
+
+// App Store guideline 3.1.2: paywalls must link Terms of Use and Privacy Policy.
+const TERMS_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+const PRIVACY_URL = 'https://github.com/VedSoni-dev/privateaiapp/blob/main/PRIVACY.md';
 
 interface Props {
   visible: boolean;
   onClose: () => void;
   onSubscribe: () => void;
+  onRestore: () => void;
   messagesUsed: number;
   limit: number;
 }
@@ -35,7 +41,7 @@ const FEATURES_PRO = [
 ];
 
 export const PaywallModal: React.FC<Props> = ({
-  visible, onClose, onSubscribe, messagesUsed, limit,
+  visible, onClose, onSubscribe, onRestore, messagesUsed, limit,
 }) => (
   <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
     <SafeAreaView style={styles.safe}>
@@ -103,6 +109,35 @@ export const PaywallModal: React.FC<Props> = ({
           Cancel anytime in iOS Settings → your Apple ID → Subscriptions;{'\n'}
           cancel at least 24h before renewal to avoid the next charge.
         </Text>
+
+        <TouchableOpacity
+          onPress={onRestore}
+          style={styles.restoreBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Restore previous purchases"
+        >
+          <Text style={styles.restoreTxt}>Restore Purchases</Text>
+        </TouchableOpacity>
+
+        <View style={styles.legalLinks}>
+          <TouchableOpacity
+            onPress={() => Linking.openURL(TERMS_URL).catch(() => {})}
+            accessibilityRole="link"
+            accessibilityLabel="Terms of Use"
+            hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+          >
+            <Text style={styles.legalLinkTxt}>Terms of Use</Text>
+          </TouchableOpacity>
+          <Text style={styles.legalLinkDot}>·</Text>
+          <TouchableOpacity
+            onPress={() => Linking.openURL(PRIVACY_URL).catch(() => {})}
+            accessibilityRole="link"
+            accessibilityLabel="Privacy Policy"
+            hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+          >
+            <Text style={styles.legalLinkTxt}>Privacy Policy</Text>
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity
           onPress={onClose}
@@ -265,6 +300,16 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     marginBottom: 16,
   },
+  restoreBtn: { paddingVertical: 10 },
+  restoreTxt: { fontSize: 14, color: AppColors.accentCyan, fontWeight: '600' },
+  legalLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
+  legalLinkTxt: { fontSize: 12, color: AppColors.textMuted, textDecorationLine: 'underline' },
+  legalLinkDot: { fontSize: 12, color: AppColors.textMuted },
   maybeLater: { paddingVertical: 8 },
   maybeLaterTxt: { fontSize: 14, color: AppColors.textMuted },
 });

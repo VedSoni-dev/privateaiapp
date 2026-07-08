@@ -1,0 +1,118 @@
+/**
+ * PurchaseService — RevenueCat (react-native-purchases) wrapper.
+ *
+ * Expo Go-safe by design: the native module is lazily required, so in Expo Go
+ * (where it doesn't exist) every function degrades gracefully and the rest of
+ * the app keeps working. Real purchases only function in dev-client/TestFlight
+ * builds AND once REVENUECAT_IOS_KEY below is set to a real key.
+ *
+ * Setup checklist (user-side, one time):
+ *  1. App Store Connect → create auto-renewing subscription (e.g. `pro_monthly`, $4.99)
+ *  2. revenuecat.com → new project → add iOS app → paste App Store Connect
+ *     App-Specific Shared Secret → create entitlement `pro` attached to the product
+ *  3. Copy the public Apple API key (starts with `appl_`) into REVENUECAT_IOS_KEY
+ */
+import { activatePro, deactivatePro } from './UsageService';
+
+// RevenueCat dashboard → Project settings → API keys → Apple.
+// Public key, safe to embed in the binary.
+const REVENUECAT_IOS_KEY = 'appl_REPLACE_ME';
+const ENTITLEMENT_ID = 'pro';
+
+let PurchasesModule: any = null;
+
+function native(): any | null {
+  if (PurchasesModule) return PurchasesModule;
+  try {
+    // Lazy require: crashes at import time in Expo Go, so never import at top level.
+    PurchasesModule = require('react-native-purchases').default;
+    return PurchasesModule;
+  } catch {
+    return null;
+  }
+}
+
+function configured(): boolean {
+  return !REVENUECAT_IOS_KEY.includes('REPLACE');
+}
+
+/** True when running in a build that contains the StoreKit native module. */
+export function isAvailable(): boolean {
+  return native() != null;
+}
+
+let initialized = false;
+
+async function syncEntitlement(customerInfo: any): Promise<boolean> {
+  const active = Boolean(customerInfo?.entitlements?.active?.[ENTITLEMENT_ID]);
+  if (active) await activatePro();
+  else await deactivatePro();
+  return active;
+}
+
+/** Call once at app boot. No-op in Expo Go or while the key is unset. */
+export async function initPurchases(): Promise<void> {
+  const P = native();
+  if (!P || !configured() || initialized) return;
+  initialized = true;
+  try {
+    P.configure({ apiKey: REVENUECAT_IOS_KEY });
+    P.addCustomerInfoUpdateListener((info: any) => {
+      void syncEntitlement(info);
+    });
+    const info = await P.getCustomerInfo();
+    await syncEntitlement(info);
+  } catch (e) {
+    console.warn('[Purchases] init failed:', e);
+  }
+}
+
+export interface PurchaseResult {
+  ok: boolean;
+  /** User-facing explanation when ok is false; undefined for silent cancel. */
+  message?: string;
+}
+
+export async function purchasePro(): Promise<PurchaseResult> {
+  const P = native();
+  if (!P) {
+    return { ok: false, message: 'Purchases need the installed app build — they are not available in Expo Go.' };
+  }
+  if (!configured()) {
+    return { ok: false, message: 'Purchases are not configured yet. Check back in the next update.' };
+  }
+  try {
+    const offerings = await P.getOfferings();
+    const pkg = offerings?.current?.availablePackages?.[0];
+    if (!pkg) {
+      return { ok: false, message: 'Subscription is not available right now. Please try again later.' };
+    }
+    const { customerInfo } = await P.purchasePackage(pkg);
+    const active = await syncEntitlement(customerInfo);
+    return active ? { ok: true } : { ok: false, message: 'Purchase did not activate. Try Restore Purchases.' };
+  } catch (e: any) {
+    if (e?.userCancelled) return { ok: false }; // silent — the user changed their mind
+    console.warn('[Purchases] purchase failed:', e);
+    return { ok: false, message: 'Purchase failed. You were not charged — please try again.' };
+  }
+}
+
+export async function restorePurchases(): Promise<PurchaseResult> {
+  const P = native();
+  if (!P) {
+    return { ok: false, message: 'Restore needs the installed app build — it is not available in Expo Go.' };
+  }
+  if (!configured()) {
+    return { ok: false, message: 'Purchases are not configured yet.' };
+  }
+  try {
+    const info = await P.restorePurchases();
+    const active = await syncEntitlement(info);
+    return active
+      ? { ok: true }
+      : { ok: false, message: 'No previous purchase found for this Apple ID.' };
+  } catch (e) {
+    console.warn('[Purchases] restore failed:', e);
+    return { ok: false, message: 'Restore failed. Please try again.' };
+  }
+}

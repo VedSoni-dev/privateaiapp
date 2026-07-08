@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts } from 'expo-font';
 import * as Memory from './services/MemoryService';
 import { initUsage } from './services/UsageService';
+import { initPurchases } from './services/PurchaseService';
 import { AppColors, Fonts } from './theme';
 import { OnboardingScreen, ChatScreen } from './screens';
 import { checkOnboardingDone } from './screens/OnboardingScreen';
@@ -32,6 +33,7 @@ const App: React.FC = () => {
         checkOnboardingDone(),
         Memory.init(),
         initUsage(),
+        initPurchases(), // no-op in Expo Go / until the RevenueCat key is set
       ]);
       setInitialRoute(done ? 'Chat' : 'Onboarding');
     };

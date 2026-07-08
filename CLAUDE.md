@@ -3,10 +3,12 @@
 ChatGPT-style iOS app with confidential-compute cloud inference. Managed Expo
 app (runs in Expo Go for dev), shipped via EAS to TestFlight.
 
-**Hard constraint: everything in `src/` must stay Expo Go-compatible.** No
-native modules outside the Expo SDK. If a task requires one (e.g. StoreKit /
-`react-native-purchases`), flag it — it forces a dev-client build and is the
-user's decision.
+**Native-module policy (changed July 2026):** the app is migrating to an
+expo-dev-client workflow, so native modules are allowed — but they MUST be
+lazily `require()`d behind a graceful fallback (see `PurchaseService.ts`,
+`copyMessageText`) so the JS bundle still runs in Expo Go for quick iteration.
+Never import a non-Expo-SDK native module at the top level of a file that
+Expo Go loads.
 
 ## Architecture
 
@@ -93,14 +95,20 @@ rate limiting + capacity guard + input validation, accessibility labels +
 subscription cancel disclosure (PaywallModal).
 
 Open, in priority order:
-1. **Real IAP**: RevenueCat + App Store Connect subscription product + server
-   receipt validation replacing `ALLOW_CLIENT_PRO`. Blocks charging money.
-   Paywall also still needs a **Restore Purchases** button and Terms/Privacy
-   links (App Store guideline 3.1.2 — rejection risk).
-2. Privacy policy URL + privacy nutrition labels in App Store Connect.
-3. Crash reporting (`sentry-expo`) — needs a DSN from the user.
-4. App Attest / DeviceCheck to make device quotas non-spoofable.
-5. Real tests (jest isn't installed despite the `test` script).
+1. **Real IAP — code is wired, config is not**: `PurchaseService.ts` wraps
+   RevenueCat (lazy-required, Expo Go-safe) and the paywall has Restore +
+   Terms/Privacy links. Still needed from the user: App Store Connect
+   subscription product, RevenueCat project, paste the `appl_` key into
+   `PurchaseService.ts`, then a dev-client/TestFlight build. Server-side
+   receipt validation (RevenueCat webhook → set `ent:` in Redis) should then
+   replace `ALLOW_CLIENT_PRO`.
+2. Privacy nutrition labels in App Store Connect (policy exists: PRIVACY.md,
+   linked from the paywall).
+3. Live Activities / Dynamic Island (needs dev-client build + widget
+   extension target — planned after the dev client is verified).
+4. Crash reporting (`sentry-expo`) — needs a DSN from the user.
+5. App Attest / DeviceCheck to make device quotas non-spoofable.
+6. Real tests (jest isn't installed despite the `test` script).
 
 ## Gotchas
 
