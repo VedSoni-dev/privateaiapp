@@ -3,6 +3,12 @@ import { View, Text, StyleSheet, Pressable } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import { AppColors, Fonts } from '../theme';
 
+export interface ChatSource {
+  title: string;
+  url: string;
+  snippet?: string;
+}
+
 export interface ChatMessage {
   text: string;
   isUser: boolean;
@@ -11,7 +17,12 @@ export interface ChatMessage {
   totalTokens?: number;
   isError?: boolean;
   wasCancelled?: boolean;
-  toolCalls?: Array<{ tool: string; query?: string; found: boolean }>;
+  toolCalls?: Array<{
+    tool: string;
+    query?: string;
+    found: boolean;
+    sources?: ChatSource[];
+  }>;
 }
 
 interface ChatMessageBubbleProps {
@@ -71,21 +82,40 @@ const mdStyles = StyleSheet.create({
   td: { padding: 10, borderTopWidth: 1, borderTopColor: AppColors.border, color: AppColors.textPrimary },
 });
 
-const TOOL_ICONS: Record<string, string> = {
-  web_search: '🔍',
-  memory_recall: '🧠',
-  datetime: '🕐',
+const TOOL_LABELS: Record<string, string> = {
+  web_search: 'Search',
+  memory_recall: 'Memory',
+  datetime: 'Time',
 };
+
+function domainOf(url = ''): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return '';
+  }
+}
+
+function sourceCountLabel(count: number): string {
+  return `${count} source${count === 1 ? '' : 's'}`;
+}
 
 export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = memo(({
   message, isStreaming = false, onLongPress,
 }) => {
   const { text, isUser, tokensPerSecond, totalTokens, isError, wasCancelled, toolCalls } = message;
+  const visibleToolCalls = toolCalls?.filter(tc => tc.tool !== 'datetime') ?? [];
+  const sources = visibleToolCalls
+    .filter(tc => tc.tool === 'web_search' && tc.found)
+    .flatMap(tc => tc.sources ?? [])
+    .slice(0, 4);
 
   if (isUser) {
     return (
       <View style={styles.userContainer}>
         <Pressable
+          accessibilityLabel={`Your message: ${text}`}
+          accessibilityHint="Long press for message actions"
           onLongPress={() => onLongPress?.(message)}
           delayLongPress={300}
           style={({ pressed }) => [styles.userBubble, pressed && { opacity: 0.8 }]}
@@ -96,32 +126,31 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = memo(({
     );
   }
 
-  // Assistant — no bubble, flows directly on background (ChatGPT style)
   return (
     <Pressable
+      accessibilityHint="Long press for message actions"
       onLongPress={() => onLongPress?.(message)}
       delayLongPress={300}
       style={({ pressed }) => [styles.assistantContainer, pressed && { opacity: 0.7 }]}
     >
-      {/* Tool call pills */}
-      {toolCalls && toolCalls.filter(tc => tc.tool !== 'datetime').length > 0 && (
+      {visibleToolCalls.length > 0 && (
         <View style={styles.toolRow}>
-          {toolCalls
-            .filter(tc => tc.tool !== 'datetime')
-            .map((tc, i) => (
+          {visibleToolCalls.map((tc, i) => {
+            const count = tc.sources?.length || 1;
+            return (
               <View key={i} style={[styles.toolPill, !tc.found && styles.toolPillFailed]}>
-                <Text style={styles.toolPillIcon}>{TOOL_ICONS[tc.tool] ?? '⚙️'}</Text>
+                <Text style={styles.toolPillIcon}>{TOOL_LABELS[tc.tool] ?? 'Tool'}</Text>
                 <Text style={styles.toolPillText} numberOfLines={1}>
                   {tc.tool === 'web_search'
-                    ? tc.found ? `Searched "${tc.query}"` : `No results`
-                    : 'Memory recalled'}
+                    ? tc.found ? sourceCountLabel(count) : 'No results'
+                    : 'Recalled'}
                 </Text>
               </View>
-            ))}
+            );
+          })}
         </View>
       )}
 
-      {/* Message content */}
       <View style={styles.assistantContent}>
         <Markdown
           style={isError ? { ...mdStyles, body: { ...mdStyles.body, color: AppColors.error } } : mdStyles}
@@ -129,16 +158,26 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = memo(({
           {text || (isStreaming ? ' ' : '')}
         </Markdown>
 
-        {isStreaming && (
-          <View style={styles.streamingCursor} />
-        )}
+        {isStreaming && <View style={styles.streamingCursor} />}
 
-        {wasCancelled && (
-          <Text style={styles.cancelledText}>— stopped</Text>
-        )}
+        {wasCancelled && <Text style={styles.cancelledText}>Stopped</Text>}
       </View>
 
-      {/* Metadata */}
+      {sources.length > 0 && (
+        <View style={styles.sources}>
+          <Text style={styles.sourcesTitle}>Sources</Text>
+          {sources.map((source, i) => (
+            <View key={`${source.url}-${i}`} style={styles.sourceRow}>
+              <Text style={styles.sourceIndex}>{i + 1}</Text>
+              <View style={styles.sourceBody}>
+                <Text style={styles.sourceTitle} numberOfLines={1}>{source.title}</Text>
+                <Text style={styles.sourceDomain} numberOfLines={1}>{domainOf(source.url)}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
       {!isStreaming && (tokensPerSecond || totalTokens) && (
         <View style={styles.meta}>
           {tokensPerSecond ? (
@@ -154,7 +193,6 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = memo(({
 });
 
 const styles = StyleSheet.create({
-  // User — right-aligned zinc card
   userContainer: {
     alignItems: 'flex-end',
     paddingHorizontal: 16,
@@ -162,7 +200,7 @@ const styles = StyleSheet.create({
   },
   userBubble: {
     maxWidth: '80%',
-    backgroundColor: AppColors.surfaceCard,
+    backgroundColor: AppColors.surfaceElevated,
     borderRadius: 18,
     borderTopRightRadius: 4,
     paddingHorizontal: 16,
@@ -176,8 +214,6 @@ const styles = StyleSheet.create({
     lineHeight: 23,
     color: AppColors.textPrimary,
   },
-
-  // Assistant — no bubble, plain layout
   assistantContainer: {
     paddingHorizontal: 16,
     paddingVertical: 6,
@@ -192,16 +228,22 @@ const styles = StyleSheet.create({
   toolPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    backgroundColor: AppColors.surfaceCard,
-    borderRadius: 20,
+    backgroundColor: AppColors.surfaceElevated,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: AppColors.border,
   },
-  toolPillFailed: { opacity: 0.4 },
-  toolPillIcon: { fontSize: 11 },
+  toolPillFailed: { opacity: 0.45 },
+  toolPillIcon: {
+    fontSize: 10,
+    color: AppColors.accentCyan,
+    fontWeight: '700',
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
   toolPillText: {
     fontSize: 11.5,
     color: AppColors.textMuted,
@@ -209,6 +251,48 @@ const styles = StyleSheet.create({
     maxWidth: 220,
   },
   assistantContent: {},
+  sources: {
+    marginTop: 12,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: AppColors.border,
+    gap: 7,
+  },
+  sourcesTitle: {
+    fontSize: 11,
+    color: AppColors.textMuted,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  sourceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+  },
+  sourceIndex: {
+    width: 18,
+    height: 18,
+    borderRadius: 5,
+    textAlign: 'center',
+    lineHeight: 18,
+    overflow: 'hidden',
+    backgroundColor: AppColors.surfaceElevated,
+    color: AppColors.textMuted,
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  sourceBody: { flex: 1, minWidth: 0 },
+  sourceTitle: {
+    fontSize: 12.5,
+    color: AppColors.textSecondary,
+    fontWeight: '600',
+  },
+  sourceDomain: {
+    fontSize: 11,
+    color: AppColors.textMuted,
+    marginTop: 1,
+  },
   streamingCursor: {
     width: 2,
     height: 16,

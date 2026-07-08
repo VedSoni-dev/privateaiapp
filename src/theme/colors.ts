@@ -1,37 +1,38 @@
 import { Platform } from 'react-native';
 
 /**
- * shadcn/ui dark theme — zinc scale with coral accent.
- * Mirrors the shadcn CSS variables mapped to React Native.
+ * Crimson and cream theme - warm paper, deep berry text, and a muted
+ * crimson accent. The names stay stable so the rest of the app can keep
+ * referencing the same semantic tokens.
  */
 export const AppColors = {
-  // Backgrounds — zinc-950 / zinc-900 / zinc-800
-  primaryDark:    '#09090b',   // zinc-950  — main canvas
-  primaryMid:     '#18181b',   // zinc-900  — elevated sections, panels
-  surfaceCard:    '#27272a',   // zinc-800  — cards, user bubbles, inputs
-  surfaceElevated:'#18181b',   // zinc-900
+  // Backgrounds - cream / ivory / paper
+  primaryDark:    '#f7eee6',   // main canvas
+  primaryMid:     '#f0e0d4',   // elevated sections, panels
+  surfaceCard:    '#fff9f4',   // cards, user bubbles, inputs
+  surfaceElevated:'#f5e8dc',   // raised surfaces
 
-  // Accent — coral family (kept from original brand)
-  accentCyan:    '#e5734a',    // coral primary
-  accentViolet:  '#f09070',    // coral light
-  accentPink:    '#e5734a',
-  accentGreen:   '#22c55e',    // green-500
-  accentOrange:  '#f59e0b',    // amber-500
+  // Accent - crimson family
+  accentCyan:    '#8f1d31',    // primary crimson
+  accentViolet:  '#b03b4d',    // lighter crimson
+  accentPink:    '#a42c40',
+  accentGreen:   '#356b4f',    // muted evergreen
+  accentOrange:  '#b66a2f',    // warm clay
 
-  // Text — zinc scale
-  textPrimary:   '#fafafa',    // zinc-50
-  textSecondary: '#a1a1aa',    // zinc-400
-  textMuted:     '#71717a',    // zinc-500
+  // Text - berry / ink / smoke
+  textPrimary:   '#30171b',
+  textSecondary: '#6f5559',
+  textMuted:     '#7a6165',   // darkened from #8d7377: 4.9:1 on cream (WCAG AA)
 
   // Status
-  success: '#22c55e',
-  warning: '#f59e0b',
-  error:   '#ef4444',
-  info:    '#3b82f6',
+  success: '#356b4f',
+  warning: '#b66a2f',
+  error:   '#ad3549',
+  info:    '#7a4c57',
 
-  // Borders — zinc-700 / zinc-600
-  border:       '#3f3f46',     // zinc-700
-  borderStrong: '#52525b',     // zinc-600
+  // Borders - warm paper tone
+  border:       '#dbc3b8',
+  borderStrong: '#c9a99e',
 } as const;
 
 export type AppColorsType = typeof AppColors;

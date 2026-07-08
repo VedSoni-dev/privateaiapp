@@ -30,10 +30,8 @@ const App: React.FC = () => {
     const boot = async () => {
       const [done] = await Promise.all([
         checkOnboardingDone(),
-        (async () => {
-          Memory.init().catch(() => {});
-          initUsage().catch(() => {});
-        })(),
+        Memory.init(),
+        initUsage(),
       ]);
       setInitialRoute(done ? 'Chat' : 'Onboarding');
     };
@@ -47,7 +45,7 @@ const App: React.FC = () => {
   return (
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <StatusBar barStyle="light-content" backgroundColor={AppColors.primaryDark} />
+        <StatusBar barStyle="dark-content" backgroundColor={AppColors.primaryDark} />
         <NavigationContainer>
           <Stack.Navigator
             initialRouteName={initialRoute}

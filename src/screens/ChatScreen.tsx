@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import {
   Pressable,
   ScrollView,
   Image,
+  AccessibilityInfo,
 } from 'react-native';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -77,6 +78,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
   const [usage, setUsage] = useState(getUsage());
   const [menuOpen, setMenuOpen] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [sessionSearch, setSessionSearch] = useState('');
   const currentSessionRef = useRef<ChatStorage.ChatSessionFull>(ChatStorage.createSession());
   const flatListRef = useRef<FlatList>(null);
   const streamCancelRef = useRef<(() => void) | null>(null);
@@ -108,29 +110,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
     }
   };
 
-  const handleLongPressMessage = (m: ChatMessage) => {
-    if (!m.text) return;
-    Alert.alert('Message', undefined, [
-      {
-        text: 'Copy',
-        onPress: () => {
-          try {
-            // Lazily required so older dev-client binaries don't crash on import.
-            const Clipboard = require('expo-clipboard');
-            void Clipboard.setStringAsync(m.text);
-          } catch {
-            Share.share({ message: m.text }).catch(() => {});
-          }
-        },
-      },
-      {
-        text: 'Share',
-        onPress: () => {
-          Share.share({ message: m.text }).catch(() => {});
-        },
-      },
-      { text: 'Cancel', style: 'cancel' },
-    ]);
+  const copyMessageText = async (text: string) => {
+    try {
+      // Lazily required so older dev-client binaries don't crash on import.
+      const Clipboard = require('expo-clipboard');
+      await Clipboard.setStringAsync(text);
+    } catch {
+      await Share.share({ message: text }).catch(() => {});
+    }
   };
 
   useEffect(() => {
@@ -166,10 +153,10 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
     }
   };
 
-  const handleSend = async (overrideText?: string) => {
+  const handleSend = async (overrideText?: string, overrideHistory?: ChatMessage[]) => {
     void SafeHaptics.impactLight();
     const text = (overrideText ?? inputText).trim();
-    if (!text || isGenerating) return;
+    if (!text || (isGenerating && !overrideHistory)) return;
 
     if (!canSendMessage()) {
       setShowPaywall(true);
@@ -181,9 +168,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
       isUser: true,
       timestamp: new Date(),
     };
-    const history = messages;
+    const history = overrideHistory ?? messages;
     autoScrollRef.current = true; // sending always snaps focus to the reply
-    setMessages(prev => [...prev, userMessage]);
+    setMessages([...history, userMessage]);
     setInputText('');
     setIsGenerating(true);
     setIsThinking(true);
@@ -239,7 +226,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
         totalTokens: streamFinal.totalTokens,
         toolCalls: toolCalls
           .filter(tc => tc.tool !== 'datetime')
-          .map(tc => ({ tool: tc.tool, query: tc.query, found: tc.found })),
+          .map(tc => ({ tool: tc.tool, query: tc.query, found: tc.found, sources: tc.sources })),
       };
       setMessages(prev => {
         const next = [...prev, assistantMessage];
@@ -259,6 +246,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
       setCurrentResponse('');
       responseRef.current = '';
       setIsGenerating(false);
+      // VoiceOver users otherwise get no signal that the reply finished.
+      AccessibilityInfo.announceForAccessibility('Response ready');
       void recordMessage().then(() => setUsage(getUsage()));
 
       // Learn durable facts from this exchange in the background.
@@ -288,11 +277,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
     }
   };
 
-  const handleStop = () => {
+  const handleStop = (options?: { quiet?: boolean }) => {
     setIsThinking(false);
     if (streamCancelRef.current) {
       streamCancelRef.current();
-      if (responseRef.current) {
+      if (responseRef.current && !options?.quiet) {
         const message: ChatMessage = {
           text: responseRef.current,
           isUser: false,
@@ -366,12 +355,84 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
     closeMenu();
   };
 
+  const filteredSessions = useMemo(() => {
+    const query = sessionSearch.trim().toLowerCase();
+    if (!query) return sessions;
+    return sessions.filter(session => {
+      const haystack = [
+        session.title,
+        session.lastMessagePreview || '',
+      ].join(' ').toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [sessionSearch, sessions]);
+
+  function findPreviousUserMessageIndex(fromIndex: number): number {
+    for (let i = fromIndex - 1; i >= 0; i -= 1) {
+      if (messages[i]?.isUser) return i;
+    }
+    return -1;
+  }
+
+  function handleEditMessage(index: number): void {
+    const message = messages[index];
+    if (!message?.isUser || !message.text) return;
+    if (isGenerating) handleStop({ quiet: true });
+    const trimmed = messages.slice(0, index);
+    setMessages(trimmed);
+    setInputText(message.text);
+    setStatusText('Editing previous message');
+  }
+
+  function handleResendMessage(index: number): void {
+    const message = messages[index];
+    if (!message?.isUser || !message.text) return;
+    if (isGenerating) handleStop({ quiet: true });
+    const trimmed = messages.slice(0, index);
+    setMessages(trimmed);
+    setInputText('');
+    void handleSend(message.text, trimmed);
+  }
+
+  function handleRegenerateMessage(index: number): void {
+    const message = messages[index];
+    if (!message || message.isUser) return;
+    const userIndex = findPreviousUserMessageIndex(index);
+    if (userIndex < 0) return;
+    const userText = messages[userIndex]?.text?.trim();
+    if (!userText) return;
+    if (isGenerating) handleStop({ quiet: true });
+    const trimmed = messages.slice(0, index);
+    setMessages(trimmed);
+    setInputText('');
+    void handleSend(userText, trimmed);
+  }
+
+  function handleLongPressMessage(message: ChatMessage, index: number): void {
+    if (!message.text) return;
+    const buttons = message.isUser
+      ? [
+          { text: 'Edit', onPress: () => handleEditMessage(index) },
+          { text: 'Resend', onPress: () => void handleResendMessage(index) },
+          { text: 'Copy', onPress: () => void copyMessageText(message.text) },
+          { text: 'Share', onPress: () => { Share.share({ message: message.text }).catch(() => {}); } },
+          { text: 'Cancel', style: 'cancel' as const },
+        ]
+      : [
+          { text: 'Regenerate', onPress: () => void handleRegenerateMessage(index) },
+          { text: 'Copy', onPress: () => void copyMessageText(message.text) },
+          { text: 'Share', onPress: () => { Share.share({ message: message.text }).catch(() => {}); } },
+          { text: 'Cancel', style: 'cancel' as const },
+        ];
+    Alert.alert('Message', undefined, buttons);
+  }
+
   const renderMessageItem = useCallback(
     ({ item, index }: { item: ChatMessage; index: number }) => (
       <ChatMessageBubble
         message={item}
         isStreaming={isGenerating && index === messages.length}
-        onLongPress={handleLongPressMessage}
+        onLongPress={(message) => handleLongPressMessage(message, index)}
       />
     ),
     [isGenerating, messages.length, handleLongPressMessage],
@@ -380,6 +441,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
   const renderSuggestionChip = (icon: string, text: string) => (
     <TouchableOpacity
       key={text}
+      accessibilityRole="button"
+      accessibilityLabel={text}
       style={styles.suggestionChip}
       onPress={() => { void SafeHaptics.selection(); handleSend(text); }}
       activeOpacity={0.7}
@@ -392,7 +455,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="dark-content" />
       <PanGestureHandler activeOffsetX={[-20, 20]} onHandlerStateChange={onEdgePan}>
         <View style={styles.flex1}>
       <View style={styles.header}>
@@ -410,7 +473,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
             </View>
           </View>
         </View>
-        <TouchableOpacity onPress={openMenu} style={styles.menuButton} accessibilityLabel="Settings">
+        <TouchableOpacity onPress={openMenu} style={styles.menuButton} accessibilityRole="button" accessibilityLabel="Settings and chat history">
           <View style={styles.menuGlyph}>
             <View style={[styles.menuLine, { width: 16 }]} />
             <View style={[styles.menuLine, { width: 11 }]} />
@@ -475,13 +538,29 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
               <Text style={styles.statusText} numberOfLines={1}>{statusText}</Text>
             </View>
           )}
-          <View style={styles.inputWrapper}>
+          <View style={styles.modeRow}>
             <TouchableOpacity
-              onPress={() => setWebEnabled(prev => !prev)}
-              style={[styles.globeButton, webEnabled && styles.globeButtonActive]}
+              onPress={() => setWebEnabled(false)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Private mode, no web search"
+              accessibilityState={{ selected: !webEnabled }}
+              style={[styles.modeButton, !webEnabled && styles.modeButtonActive]}
             >
-              <Text style={styles.globeIcon}>🌐</Text>
+              <Text style={[styles.modeText, !webEnabled && styles.modeTextActive]}>Private</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => setWebEnabled(true)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Web mode, searches the web when helpful"
+              accessibilityState={{ selected: webEnabled }}
+              style={[styles.modeButton, webEnabled && styles.modeButtonActive]}
+            >
+              <Text style={[styles.modeText, webEnabled && styles.modeTextActive]}>Web</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.inputWrapper}>
             <TextInput
               style={styles.input}
               placeholder="Message Private AI..."
@@ -490,13 +569,27 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
               onChangeText={setInputText}
               onSubmitEditing={() => handleSend()}
               multiline
+              accessibilityLabel="Message input"
             />
             {isGenerating ? (
-              <TouchableOpacity onPress={handleStop} style={styles.stopButton}>
+              <TouchableOpacity
+                onPress={() => handleStop()}
+                style={styles.stopButton}
+                accessibilityRole="button"
+                accessibilityLabel="Stop generating"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
                 <Text style={styles.stopIconText}>⏹</Text>
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity onPress={() => handleSend()} disabled={!inputText.trim()}>
+              <TouchableOpacity
+                onPress={() => handleSend()}
+                disabled={!inputText.trim()}
+                accessibilityRole="button"
+                accessibilityLabel="Send message"
+                accessibilityState={{ disabled: !inputText.trim() }}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
                 <LinearGradient
                   colors={[AppColors.accentCyan, AppColors.accentViolet]}
                   start={{ x: 0, y: 0 }}
@@ -515,11 +608,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
                 : `${usage.remaining} of ${usage.limit} messages left today`}
             </Text>
             {!usage.isPro && (
-              <TouchableOpacity onPress={() => setShowPaywall(true)}>
+              <TouchableOpacity
+                onPress={() => setShowPaywall(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Upgrade to Pro"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
                 <Text style={styles.upgradeLink}>Upgrade →</Text>
               </TouchableOpacity>
             )}
           </View>
+          {/* FTC AI-transparency disclosure — keep visible near the input. */}
+          <Text style={styles.aiNotice}>Responses are AI-generated and may be inaccurate.</Text>
         </View>
       </KeyboardAvoidingView>
         </View>
@@ -548,7 +648,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
           <ScrollView contentContainerStyle={styles.panelContent}>
             <View style={styles.panelHeader}>
               <Text style={styles.panelTitle}>Settings</Text>
-              <TouchableOpacity onPress={closeMenu} style={styles.panelClose}>
+              <TouchableOpacity
+                onPress={closeMenu}
+                style={styles.panelClose}
+                accessibilityRole="button"
+                accessibilityLabel="Close settings"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
                 <Text style={styles.panelCloseText}>✕</Text>
               </TouchableOpacity>
             </View>
@@ -571,9 +677,33 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
               </View>
             </View>
 
+            <View style={styles.panelCard}>
+              <Text style={styles.switchLabel}>Search chats</Text>
+              <View style={styles.searchRow}>
+                <TextInput
+                  value={sessionSearch}
+                  onChangeText={setSessionSearch}
+                  placeholder="Title or preview"
+                  placeholderTextColor={AppColors.textMuted}
+                  style={styles.searchInput}
+                />
+                {sessionSearch ? (
+                  <TouchableOpacity
+                    onPress={() => setSessionSearch('')}
+                    style={styles.searchClear}
+                    accessibilityLabel="Clear chat search"
+                  >
+                    <Text style={styles.searchClearText}>✕</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+            </View>
+
             <Text style={styles.panelSection}>CHAT</Text>
             <TouchableOpacity
               style={[styles.panelRow, styles.panelRowAccent]}
+              accessibilityRole="button"
+              accessibilityLabel="Start a new chat"
               onPress={() => {
                 void SafeHaptics.impactLight();
                 handleNewChat();
@@ -584,9 +714,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
               <Text style={[styles.panelRowText, { fontWeight: '600' }]}>New chat</Text>
             </TouchableOpacity>
 
-            {sessions.slice(0, 7).map(s => (
+            {filteredSessions.slice(0, 7).map(s => (
               <TouchableOpacity
                 key={s.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Open chat: ${s.title}`}
                 style={[
                   styles.panelRow,
                   s.id === currentSessionRef.current.id && styles.panelRowActive,
@@ -603,9 +735,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
                 <Text style={styles.panelChevron}>›</Text>
               </TouchableOpacity>
             ))}
+            {filteredSessions.length === 0 && (
+              <View style={styles.panelEmptyRow}>
+                <Text style={styles.panelEmptyText}>
+                  {sessionSearch ? 'No chats match that search.' : 'Your chats will show up here.'}
+                </Text>
+              </View>
+            )}
 
             <TouchableOpacity
               style={styles.panelRow}
+              accessibilityRole="button"
+              accessibilityLabel="What AI remembers about you"
               onPress={() => {
                 closeMenu();
                 showMemory();
@@ -618,6 +759,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
             {!usage.isPro && (
               <TouchableOpacity
                 style={[styles.panelRow, styles.upgradeRow]}
+                accessibilityRole="button"
+                accessibilityLabel="Upgrade to Pro"
                 onPress={() => { closeMenu(); setShowPaywall(true); }}
               >
                 <Text style={styles.panelRowIcon}>✦</Text>
@@ -715,18 +858,39 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 12, color: AppColors.accentCyan, fontWeight: '500' },
 
   // Compound input row — wraps input + action buttons
+  modeRow: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    backgroundColor: AppColors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: AppColors.border,
+    borderRadius: 10,
+    padding: 3,
+    marginBottom: 8,
+    gap: 2,
+  },
+  modeButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 7,
+  },
+  modeButtonActive: {
+    backgroundColor: AppColors.surfaceCard,
+  },
+  modeText: {
+    color: AppColors.textMuted,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  modeTextActive: {
+    color: AppColors.textPrimary,
+  },
   inputWrapper: {
     flexDirection: 'row', alignItems: 'flex-end',
     backgroundColor: AppColors.surfaceCard,
     borderRadius: 14, borderWidth: 1, borderColor: AppColors.border,
     paddingHorizontal: 4, paddingVertical: 4, gap: 2,
   },
-  globeButton: {
-    width: 36, height: 36, borderRadius: 8,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  globeButtonActive: { backgroundColor: AppColors.accentCyan + '18' },
-  globeIcon: { fontSize: 17 },
   input: {
     flex: 1,
     paddingHorizontal: 8,
@@ -756,6 +920,7 @@ const styles = StyleSheet.create({
   },
   disclaimer:   { fontSize: 11, color: AppColors.textMuted },
   upgradeLink:  { fontSize: 11, color: AppColors.accentCyan, fontWeight: '600' },
+  aiNotice:     { fontSize: 10.5, color: AppColors.textMuted, textAlign: 'center', marginTop: 3 },
 
   // ── Backdrop + panel ─────────────────────────────────────────────
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)' },
@@ -777,6 +942,39 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderColor: AppColors.border,
     padding: 14, marginBottom: 8,
   },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+  },
+  searchInput: {
+    flex: 1,
+    minHeight: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: AppColors.border,
+    backgroundColor: AppColors.primaryDark,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    color: AppColors.textPrimary,
+    fontSize: 14,
+  },
+  searchClear: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: AppColors.border,
+    backgroundColor: AppColors.primaryDark,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchClearText: {
+    color: AppColors.textSecondary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
   switchRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   switchTextWrap: { flex: 1 },
   switchLabel:   { fontSize: 15, fontWeight: '600', color: AppColors.textPrimary, marginBottom: 2 },
@@ -794,6 +992,15 @@ const styles = StyleSheet.create({
   panelRowIcon:   { fontSize: 15, width: 24 },
   panelRowText:   { flex: 1, fontSize: 14.5, color: AppColors.textPrimary },
   panelChevron:   { fontSize: 18, color: AppColors.textMuted, marginLeft: 6 },
+  panelEmptyRow: {
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+  },
+  panelEmptyText: {
+    fontSize: 12,
+    color: AppColors.textMuted,
+    lineHeight: 18,
+  },
   upgradeRow:     { borderColor: AppColors.accentCyan + '44', backgroundColor: AppColors.accentCyan + '0A', marginBottom: 6 },
 
   apiBadge:      { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },

@@ -1,99 +1,88 @@
 # Private AI
 
-A ChatGPT-style assistant, no account required. Chat replies are generated on [Privatemode](https://www.privatemode.ai/)'s confidential-compute cloud — encrypted end-to-end, never logged, never used for training — via our own backend.
-
-Built with [React Native](https://reactnative.dev/), a [backend](server/) that proxies chat completions to Privatemode, and a [Cloudflare Worker](worker/) for web search.
+A ChatGPT-style mobile assistant that runs in Expo Go. Chat replies are generated through Privatemode's confidential-compute cloud via the app backend; web search runs through a Cloudflare Worker.
 
 ## Features
 
-- **Private chat** — Streaming conversations, generated via confidential-compute cloud inference (no plaintext ever seen by the server)
-- **Web search** — The model decides when a query needs live info and pulls in search results
-- **Memory** — Learns and recalls relevant facts about you across sessions
-- **No API keys in the app** — The app never holds a Privatemode key or talks to it directly; only your own backend does
+- Private chat: streaming conversations through confidential-compute cloud inference
+- Web search: current-info questions can pull live context through the Worker
+- Memory: durable facts are recalled across sessions; the memory list is stored locally
+- Local chat history: saved on the device with AsyncStorage
+- Server-side usage state: daily caps and pro entitlement are tracked by the backend
+- No API keys in the app: the phone only talks to your backend and search Worker
 
 ## Requirements
 
-- **macOS** with Xcode 15+ (for iOS builds)
 - Node.js 18+
-- Internet connection (chat responses require reaching the backend)
+- Expo Go on your phone
+- Internet connection for chat responses and web search
 
 ## Quick Start
 
-### 1. Install dependencies
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-### 2. iOS setup
+Start Metro for Expo Go:
 
 ```bash
-cd ios && pod install && cd ..
+npx expo start --go -c
 ```
 
-### 3. Run on iPhone
+Scan the QR code with Expo Go. No Xcode, native iOS build, or TestFlight loop is required for this Expo Go version.
 
-```bash
-npm start
+## How It Works
+
+```text
+Phone app (Expo Go)
+  -> Render backend (/v1/chat)
+  -> Render backend (/v1/usage)
+  -> Privatemode confidential-compute inference
+
+Phone app (web search enabled)
+  -> Cloudflare Worker (/search)
+  -> Brave/DuckDuckGo plus curated fallbacks for common live-info queries
 ```
 
-In a second terminal:
+The app never holds a Privatemode API key or talks to Privatemode directly. It calls the backend, which proxies requests to Privatemode.
 
-```bash
-npx react-native run-ios --device
-```
+## Project Structure
 
-Or open `ios/RunAnywhereStarter.xcworkspace` in Xcode and run on your connected iPhone.
-
-## How it works
-
-```
-┌───────────────┐     ┌──────────────────┐     ┌────────────────────────┐
-│  Chat UI      │ ──▶ │  Our Backend     │ ──▶ │  Privatemode proxy     │
-│  (device)     │     │  (Render)        │     │  (confidential compute)│
-└───────────────┘     └──────────────────┘     └────────────────────────┘
-```
-
-The app never holds a Privatemode API key or talks to it directly — it only calls our backend, which proxies to Privatemode's encrypted confidential-compute inference (`gpt-oss-120b`).
-
-## Project structure
-
-```
+```text
 src/
-├── App.tsx              # Navigation + boot
-├── screens/
-│   ├── OnboardingScreen.tsx
-│   └── ChatScreen.tsx    # Main ChatGPT-like interface
-├── services/
-│   ├── AgentService.ts   # Tool-use orchestration (web search, memory, datetime)
-│   ├── BackendClient.ts  # Talks to our backend's /v1/chat
-│   ├── WebSearchService.ts
-│   ├── MemoryService.ts
-│   ├── ChatStorageService.ts
-│   ├── AttachmentService.ts
-│   └── UsageService.ts
-└── components/
-    └── ChatMessageBubble.tsx
+  App.tsx                 Navigation and boot
+  screens/
+    OnboardingScreen.tsx
+    ChatScreen.tsx        Main chat interface
+  services/
+    AgentService.ts       Search/memory/datetime orchestration
+    BackendClient.ts      Talks to the backend /v1/chat
+    WebSearchService.ts   Talks to the Cloudflare search Worker
+    MemoryService.ts      Local memory storage plus backend extraction
+    ChatStorageService.ts Local chat/session persistence
+    UsageService.ts       Daily free-tier limit + backend sync
+  components/
+    ChatMessageBubble.tsx
 
-server/                  # Backend that proxies chat completions to Privatemode
-worker/                  # Cloudflare Worker for web search
+server/                   Backend proxy to Privatemode
+worker/                   Cloudflare Worker for web search
 ```
 
 ## Model
 
 | Model | Purpose | Runs where |
-|-------|---------|------------|
-| gpt-oss-120b (via Privatemode) | Chat / text generation | Confidential-compute cloud |
-
-## Android
-
-Android builds are supported. See the standard [React Native Android setup](https://reactnative.dev/docs/environment-setup) for details.
+| --- | --- | --- |
+| gpt-oss-120b via Privatemode | Chat and text generation | Confidential-compute cloud |
 
 ## Privacy
 
-- Chat replies are generated on Privatemode's confidential-compute cloud (TEE-attested, end-to-end encrypted) via our own backend — the app never holds a Privatemode API key
-- No analytics or telemetry
+- Chat history and remembered facts are stored locally on the phone.
+- Chat generation and memory extraction use the confidential-compute backend.
+- Web search can be disabled in the app.
+- No analytics or telemetry are included in the app code.
 
 ## License
 
-Apache 2.0 (see LICENSE).
+Apache 2.0. See LICENSE.

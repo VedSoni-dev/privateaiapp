@@ -6,19 +6,22 @@
     "orientation": "portrait",
     "icon": "./assets/icon-1024.png",
     "scheme": "privateai",
-    "userInterfaceStyle": "dark",
+    "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "backgroundColor": "#09090b"
+      "backgroundColor": "#f7eee6"
     },
     "ios": {
       "bundleIdentifier": "inc.neocast.privateai",
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "inc.neocast.privateai",
       "adaptiveIcon": {
-        "backgroundColor": "#09090b"
+        "backgroundColor": "#f7eee6"
       }
     },
     "extra": {
@@ -27,8 +30,7 @@
       }
     },
     "plugins": [
-      "expo-font",
-      "expo-status-bar"
+      "expo-font"
     ]
   }
 }

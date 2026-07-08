@@ -1,7 +1,12 @@
 import React from 'react';
 import {
-  View, Text, TouchableOpacity, Modal, StyleSheet,
-  SafeAreaView, ScrollView,
+  View,
+  Text,
+  TouchableOpacity,
+  Modal,
+  StyleSheet,
+  SafeAreaView,
+  ScrollView,
 } from 'react-native';
 import { AppColors, Fonts } from '../theme';
 
@@ -15,27 +20,32 @@ interface Props {
 
 const FEATURES_FREE = [
   '20 messages per day',
-  'Local AI — fully private',
   'Web search',
-  'Long-term memory',
-  'File attachments',
+  'Local chat history',
+  'Editable memory',
+  'Confidential cloud inference',
 ];
 
 const FEATURES_PRO = [
   'Unlimited messages',
   'Everything in Free',
-  'Cloud AI models (GPT-4 class) — coming soon',
-  'Cloud memory sync — coming soon',
+  'Higher daily search capacity',
+  'Longer context windows',
   'Priority support',
 ];
 
 export const PaywallModal: React.FC<Props> = ({
   visible, onClose, onSubscribe, messagesUsed, limit,
 }) => (
-  <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+  <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scroll} bounces={false}>
-        <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
+        <TouchableOpacity
+          onPress={onClose}
+          style={styles.closeBtn}
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+        >
           <Text style={styles.closeTxt}>✕</Text>
         </TouchableOpacity>
 
@@ -43,38 +53,36 @@ export const PaywallModal: React.FC<Props> = ({
           <Text style={styles.icon}>🛡️</Text>
         </View>
 
-        <Text style={styles.headline}>You've used {messagesUsed}/{limit} free messages today</Text>
+        <Text style={styles.headline}>You have used {messagesUsed}/{limit} free messages today</Text>
         <Text style={styles.sub}>
-          Upgrade to Pro for unlimited messages and upcoming cloud AI features.
+          Upgrade to Pro for unlimited messages, more search, and a bigger context window.
         </Text>
 
         <View style={styles.plans}>
-          {/* Free */}
           <View style={styles.planCard}>
             <Text style={styles.planName}>Free</Text>
             <Text style={styles.planPrice}>$0</Text>
-            {FEATURES_FREE.map(f => (
-              <View key={f} style={styles.featureRow}>
+            {FEATURES_FREE.map(feature => (
+              <View key={feature} style={styles.featureRow}>
                 <Text style={styles.featureCheck}>✓</Text>
-                <Text style={styles.featureTxt}>{f}</Text>
+                <Text style={styles.featureTxt}>{feature}</Text>
               </View>
             ))}
           </View>
 
-          {/* Pro */}
           <View style={[styles.planCard, styles.planCardPro]}>
             <View style={styles.proBadge}>
               <Text style={styles.proBadgeTxt}>BEST VALUE</Text>
             </View>
-            <Text style={[styles.planName, { color: '#fff' }]}>Pro</Text>
+            <Text style={[styles.planName, styles.planNamePro]}>Pro</Text>
             <View style={styles.priceRow}>
-              <Text style={[styles.planPrice, { color: '#fff' }]}>$4.99</Text>
-              <Text style={styles.pricePer}>/month</Text>
+              <Text style={[styles.planPrice, styles.planPricePro]}>$4.99</Text>
+              <Text style={[styles.pricePer, styles.pricePerPro]}>{'/month'}</Text>
             </View>
-            {FEATURES_PRO.map(f => (
-              <View key={f} style={styles.featureRow}>
-                <Text style={[styles.featureCheck, { color: AppColors.accentCyan + 'CC' }]}>✓</Text>
-                <Text style={[styles.featureTxt, { color: 'rgba(255,255,255,0.85)' }]}>{f}</Text>
+            {FEATURES_PRO.map(feature => (
+              <View key={feature} style={styles.featureRow}>
+                <Text style={styles.featureCheckPro}>✓</Text>
+                <Text style={styles.featureTxtPro}>{feature}</Text>
               </View>
             ))}
           </View>
@@ -84,16 +92,24 @@ export const PaywallModal: React.FC<Props> = ({
           onPress={onSubscribe}
           activeOpacity={0.85}
           style={styles.cta}
+          accessibilityRole="button"
+          accessibilityLabel="Start Pro subscription, $4.99 per month"
         >
-          <Text style={styles.ctaTxt}>Start Pro — $4.99/month</Text>
+          <Text style={styles.ctaTxt}>Start Pro - $4.99/month</Text>
         </TouchableOpacity>
 
         <Text style={styles.legal}>
-          Cancel anytime. Billed monthly via App Store.{'\n'}
-          Subscription auto-renews unless cancelled 24h before renewal.
+          $4.99/month, billed via the App Store. Auto-renews monthly until cancelled.{'\n'}
+          Cancel anytime in iOS Settings → your Apple ID → Subscriptions;{'\n'}
+          cancel at least 24h before renewal to avoid the next charge.
         </Text>
 
-        <TouchableOpacity onPress={onClose} style={styles.maybeLater}>
+        <TouchableOpacity
+          onPress={onClose}
+          style={styles.maybeLater}
+          accessibilityRole="button"
+          accessibilityLabel="Maybe later, continue with the free plan"
+        >
           <Text style={styles.maybeLaterTxt}>Maybe later</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -106,79 +122,148 @@ const styles = StyleSheet.create({
   scroll: { paddingHorizontal: 24, paddingBottom: 40, alignItems: 'center' },
   closeBtn: {
     alignSelf: 'flex-end',
-    width: 34, height: 34, borderRadius: 17,
+    // 44x44 minimum touch target (Apple HIG / WCAG 2.5.5)
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: AppColors.surfaceCard,
-    justifyContent: 'center', alignItems: 'center',
-    marginTop: 8, marginBottom: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 4,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: AppColors.border,
   },
   closeTxt: { fontSize: 14, color: AppColors.textSecondary, fontWeight: '600' },
   iconRing: {
-    width: 80, height: 80, borderRadius: 26,
-    backgroundColor: AppColors.accentCyan + '18',
-    justifyContent: 'center', alignItems: 'center',
+    width: 80,
+    height: 80,
+    borderRadius: 26,
+    backgroundColor: AppColors.accentCyan + '16',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 20,
   },
   icon: { fontSize: 40 },
   headline: {
     fontFamily: Fonts.satoshi,
-    fontSize: 26, lineHeight: 34,
+    fontSize: 26,
+    lineHeight: 34,
     color: AppColors.textPrimary,
-    textAlign: 'center', marginBottom: 10,
+    textAlign: 'center',
+    marginBottom: 10,
   },
   sub: {
-    fontSize: 15, color: AppColors.textSecondary,
-    textAlign: 'center', lineHeight: 22, marginBottom: 28,
+    fontSize: 15,
+    color: AppColors.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 28,
   },
   plans: { width: '100%', gap: 12, marginBottom: 24 },
   planCard: {
-    width: '100%', padding: 20,
+    width: '100%',
+    padding: 20,
     backgroundColor: AppColors.surfaceCard,
     borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: AppColors.border,
   },
   planCardPro: {
-    backgroundColor: AppColors.textPrimary,
-    borderColor: 'transparent',
+    backgroundColor: AppColors.accentCyan,
+    borderColor: AppColors.accentCyan,
   },
   proBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: AppColors.accentCyan + '30',
-    paddingHorizontal: 9, paddingVertical: 3,
-    borderRadius: 6, marginBottom: 10,
+    backgroundColor: AppColors.surfaceCard + '26',
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginBottom: 10,
   },
   proBadgeTxt: {
-    fontSize: 10, fontWeight: '800',
-    color: AppColors.accentCyan, letterSpacing: 0.8,
+    fontSize: 10,
+    fontWeight: '800',
+    color: AppColors.surfaceCard,
+    letterSpacing: 0.8,
   },
   planName: {
-    fontSize: 17, fontWeight: '700',
-    color: AppColors.textPrimary, marginBottom: 2,
+    fontSize: 17,
+    fontWeight: '700',
+    color: AppColors.textPrimary,
+    marginBottom: 2,
   },
-  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 3, marginBottom: 14 },
-  planPrice: {
-    fontFamily: Fonts.satoshi,
-    fontSize: 32, color: AppColors.textPrimary, marginBottom: 14,
-  },
-  pricePer: { fontSize: 14, color: 'rgba(255,255,255,0.5)', marginBottom: 14 },
-  featureRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 8 },
-  featureCheck: { fontSize: 13, color: AppColors.accentGreen, fontWeight: '700', marginTop: 1 },
-  featureTxt: { fontSize: 14, color: AppColors.textPrimary, flex: 1, lineHeight: 20 },
-  cta: {
-    width: '100%', paddingVertical: 17,
-    backgroundColor: AppColors.accentCyan,
-    borderRadius: 16, alignItems: 'center',
-    shadowColor: AppColors.accentCyan,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3, shadowRadius: 12, elevation: 4,
+  planNamePro: { color: AppColors.surfaceCard },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 3,
     marginBottom: 14,
   },
-  ctaTxt: { fontSize: 17, fontWeight: '700', color: '#fff', letterSpacing: 0.2 },
+  planPrice: {
+    fontFamily: Fonts.satoshi,
+    fontSize: 32,
+    color: AppColors.textPrimary,
+    marginBottom: 14,
+  },
+  planPricePro: { color: AppColors.surfaceCard },
+  pricePer: { fontSize: 14, color: AppColors.textSecondary, marginBottom: 14 },
+  pricePerPro: { color: AppColors.surfaceCard },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 8,
+  },
+  featureCheck: {
+    fontSize: 13,
+    color: AppColors.accentCyan,
+    fontWeight: '700',
+    marginTop: 1,
+  },
+  featureCheckPro: {
+    fontSize: 13,
+    color: AppColors.surfaceCard,
+    fontWeight: '700',
+    marginTop: 1,
+  },
+  featureTxt: {
+    fontSize: 14,
+    color: AppColors.textPrimary,
+    flex: 1,
+    lineHeight: 20,
+  },
+  featureTxtPro: {
+    fontSize: 14,
+    color: AppColors.surfaceCard,
+    flex: 1,
+    lineHeight: 20,
+  },
+  cta: {
+    width: '100%',
+    paddingVertical: 17,
+    backgroundColor: AppColors.accentCyan,
+    borderRadius: 16,
+    alignItems: 'center',
+    shadowColor: AppColors.accentCyan,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 4,
+    marginBottom: 14,
+  },
+  ctaTxt: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: AppColors.surfaceCard,
+    letterSpacing: 0.2,
+  },
   legal: {
-    fontSize: 11.5, color: AppColors.textMuted,
-    textAlign: 'center', lineHeight: 17, marginBottom: 16,
+    fontSize: 11.5,
+    color: AppColors.textMuted,
+    textAlign: 'center',
+    lineHeight: 17,
+    marginBottom: 16,
   },
   maybeLater: { paddingVertical: 8 },
   maybeLaterTxt: { fontSize: 14, color: AppColors.textMuted },

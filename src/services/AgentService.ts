@@ -20,7 +20,7 @@
  *   • datetime      — current date/time (always injected, free)
  */
 import * as Memory from './MemoryService';
-import { webSearch, planSearch } from './WebSearchService';
+import { webSearch, planSearch, type SearchItem } from './WebSearchService';
 import { chatComplete, chatStream, type ChatMessage } from './BackendClient';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -38,6 +38,7 @@ export interface ToolCall {
   query?: string;
   result: string;
   found: boolean;
+  sources?: SearchItem[];
 }
 
 export interface PrepareTurnOptions {
@@ -109,7 +110,7 @@ function datetimeBlock(): string {
   return `${date}, ${time}`;
 }
 
-const SEARCH_RESULT_CAP = 3000;
+const SEARCH_RESULT_CAP = 6500;
 
 async function runWebSearchTool(query: string, onStatus?: PrepareTurnOptions['onStatus']): Promise<ToolCall> {
   onStatus?.({ type: 'searching', query });
@@ -120,7 +121,13 @@ async function runWebSearchTool(query: string, onStatus?: PrepareTurnOptions['on
   if (!results || results.items.length === 0) {
     return { tool: 'web_search', query, result: 'No results found.', found: false };
   }
-  return { tool: 'web_search', query, result: results.text.slice(0, SEARCH_RESULT_CAP), found: true };
+  return {
+    tool: 'web_search',
+    query,
+    result: results.text.slice(0, SEARCH_RESULT_CAP),
+    found: true,
+    sources: results.items,
+  };
 }
 
 function runMemoryTool(userText: string, history: AgentMessage[], onStatus?: PrepareTurnOptions['onStatus']): ToolCall | null {

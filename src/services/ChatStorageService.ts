@@ -18,6 +18,7 @@ export interface ChatSession {
   createdAt: number;
   updatedAt: number;
   messageCount: number;
+  lastMessagePreview?: string;
 }
 
 export interface ChatSessionFull extends ChatSession {
@@ -89,6 +90,7 @@ export async function saveSession(session: ChatSessionFull): Promise<void> {
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
     messageCount: session.messages.length,
+    lastMessagePreview: session.messages[session.messages.length - 1]?.text?.slice(0, 120) || '',
   };
   const idx = index.findIndex(s => s.id === session.id);
   if (idx >= 0) {

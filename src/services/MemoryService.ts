@@ -7,8 +7,9 @@
  *  - "Dreams": consolidates & prunes memories when enough has been learned
  *  - Auto-compacts long conversations so nothing important gets dropped
  *
- * All of it runs through the same on-device model. Nothing leaves the device.
- * Persistence uses AsyncStorage (Expo Go compatible, no native filesystem access).
+ * Facts are stored locally in AsyncStorage. Extraction/consolidation uses the
+ * same confidential-compute backend as chat, because Expo Go does not run the
+ * old on-device model stack.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { chatComplete } from './BackendClient';

@@ -12,6 +12,10 @@ export interface SearchItem {
 
 // Deployed Worker URL — update after `wrangler deploy`
 const WORKER_URL = 'https://private-ai-search.vedantn06soni.workers.dev';
+// Must match the Worker's SEARCH_TOKEN secret. Extractable from the binary,
+// so it only deters drive-by abuse; the Worker ignores it until the secret
+// is set (see worker/src/index.ts).
+const SEARCH_TOKEN = 'pai-search-v2-8f3a1c6d';
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | null> {
   return Promise.race([
@@ -27,16 +31,17 @@ export async function webSearch(
     const res = await withTimeout(
       fetch(`${WORKER_URL}/search`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-search-token': SEARCH_TOKEN },
         body: JSON.stringify({ query }),
       }),
-      6000,
+      12_000,
     );
     if (!res || !res.ok) return null;
     const data: any = await res.json();
     if (!data?.text && !data?.items?.length) return null;
-    // Belt-and-suspenders cap — worker may return up to 5KB but the LLM can't hold that on-device.
-    const text = String(data.text ?? '').slice(0, 2000);
+    // Keep enough context for sports/news pages where the useful facts can
+    // appear after navigation text or multiple result cards.
+    const text = String(data.text ?? '').slice(0, 6500);
     const items = (data.items ?? []).slice(0, 4);
     return { text, items };
   } catch (e) {

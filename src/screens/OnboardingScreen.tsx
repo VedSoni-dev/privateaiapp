@@ -35,28 +35,28 @@ type Props = { navigation: StackNavigationProp<RootStackParamList, 'Onboarding'>
 
 const slides = [
   {
-    icon: '🛡️',
-    title: 'ChatGPT.\nWithout the cloud.',
-    body: 'Private AI runs entirely on your iPhone. No account. No subscription. No data leaving your phone — ever.',
+    icon: '\uD83D\uDEE1\uFE0F',
+    title: 'Private chat.\nNo account.',
+    body: 'Private AI gives you a fast ChatGPT-style assistant with encrypted cloud inference and local chat history.',
     accent: AppColors.accentCyan,
   },
   {
-    icon: '🔒',
+    icon: '\uD83D\uDD12',
     title: 'Your data,\nyour rules.',
     body: null,
     features: [
-      { icon: '✓', text: 'No internet required after setup' },
-      { icon: '✓', text: 'No account or sign-in needed' },
-      { icon: '✓', text: 'All messages stay on this device' },
-      { icon: '✓', text: 'Web search: only your query leaves (opt-in)' },
-      { icon: '✓', text: 'Free. Forever.' },
+      { icon: '+', text: 'No account or sign-in needed' },
+      { icon: '+', text: 'Chat history is stored on this device' },
+      { icon: '+', text: 'Replies run through confidential cloud inference' },
+      { icon: '+', text: 'Web search can be turned on or off anytime' },
+      { icon: '+', text: 'No analytics or ad tracking' },
     ],
     accent: AppColors.accentGreen,
   },
   {
-    icon: '🧠',
+    icon: '\uD83E\uDDE0',
     title: 'It remembers\nyou.',
-    body: 'Private AI learns your name, projects, and preferences across conversations — all stored locally, never uploaded anywhere.',
+    body: 'Private AI can remember durable details like your projects and preferences. The memory list is stored locally and can be cleared anytime.',
     accent: AppColors.accentOrange,
   },
 ];
@@ -134,6 +134,8 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
         <TouchableOpacity
           onPress={goNext}
           activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={page < slides.length - 1 ? 'Next' : 'Get started'}
           style={[styles.cta, { backgroundColor: AppColors.accentCyan }]}
         >
           <Text style={styles.ctaText}>
@@ -143,6 +145,8 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
 
         {page < slides.length - 1 && (
           <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Skip onboarding"
             onPress={async () => {
               await markOnboardingDone();
               navigation.replace('Chat');
