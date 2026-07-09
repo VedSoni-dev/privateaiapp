@@ -37,7 +37,16 @@ const ACTIVITY_CONFIG = {
   progressViewLabelColor: AppColors.textMuted,
   timerType: 'circular' as const,
   deepLinkUrl: 'privateai://',
+  imagePosition: 'left' as const,
+  imageAlign: 'center' as const,
+  imageSize: { width: 22, height: 22 },
 };
+
+// assets/liveActivity/pai_dot.png — a small solid crimson dot. Without an
+// image, the Dynamic Island's compact (pill) state has nothing to draw and
+// looks completely empty even while the activity is genuinely running —
+// this is what makes it visibly "active" at a glance.
+const DOT_IMAGE = 'pai_dot';
 
 let currentActivityId: string | null = null;
 
@@ -65,6 +74,8 @@ export function startAnswerActivity(question: string): void {
         title: 'Thinking…',
         subtitle: truncate(question, 80),
         progressBar: { elapsedTimer: { startDate: Date.now() } },
+        imageName: DOT_IMAGE,
+        dynamicIslandImageName: DOT_IMAGE,
       },
       ACTIVITY_CONFIG,
     ) ?? null;
@@ -83,6 +94,8 @@ export function completeAnswerActivity(answerText: string): void {
       title: 'Answer ready ✓',
       subtitle: truncate(answerText, 100),
       progressBar: { progress: 1 },
+      imageName: DOT_IMAGE,
+      dynamicIslandImageName: DOT_IMAGE,
     });
   } catch (e) {
     console.warn('[LiveActivity] complete failed:', e);
@@ -99,6 +112,8 @@ export function endAnswerActivity(reason: 'error' | 'cancelled'): void {
       title: reason === 'error' ? 'Something went wrong' : 'Stopped',
       subtitle: reason === 'error' ? 'Tap to retry in the app' : '',
       progressBar: { progress: 1 },
+      imageName: DOT_IMAGE,
+      dynamicIslandImageName: DOT_IMAGE,
     });
   } catch {
     /* best-effort */
