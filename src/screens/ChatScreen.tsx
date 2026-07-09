@@ -31,6 +31,7 @@ import { prepareTurn, learnInBackground, streamTurn, type LearnedFact } from '..
 import { getPersonalizedSuggestions, type SuggestionChip } from '../services/SuggestionService';
 import { purchasePro, restorePurchases } from '../services/PurchaseService';
 import * as LiveActivity from '../services/LiveActivityService';
+import * as BackgroundExecution from '../services/BackgroundExecutionService';
 import * as SafeHaptics from '../services/HapticsService';
 import * as Memory from '../services/MemoryService';
 import * as ChatStorage from '../services/ChatStorageService';
@@ -210,8 +211,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
     setThinkingLabel('Thinking');
     setCurrentResponse('');
     setStatusText('');
-    // Dynamic Island / lock screen progress if the user backgrounds the app.
+    // Dynamic Island / lock screen progress if the user backgrounds the app,
+    // plus the OS-granted grace period so the stream itself survives long
+    // enough to actually finish in the background (see BackgroundExecutionService).
     LiveActivity.startAnswerActivity(text);
+    void BackgroundExecution.beginBackgroundGrace();
 
     try {
       const { messages: preparedMessages, toolCalls } = await prepareTurn({
@@ -287,6 +291,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
 
       void SafeHaptics.notificationSuccess(); // answer-complete thud
       LiveActivity.completeAnswerActivity(replyText);
+      void BackgroundExecution.endBackgroundGrace();
 
       // Learn durable facts from this exchange in the background; surface
       // what was learned as a dismissable "memory moment" chip.
@@ -302,12 +307,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
       // so don't also show a spurious "Error: AbortError" one on top of it.
       const isAbort = error instanceof Error && (error.name === 'AbortError' || /abort/i.test(error.message));
       LiveActivity.endAnswerActivity(isAbort ? 'cancelled' : 'error');
+      const expiredInBackground = BackgroundExecution.didExpireDuringLastTurn();
+      void BackgroundExecution.endBackgroundGrace();
       if (isAbort) {
         setCurrentResponse('');
         return;
       }
+      // The stream outlasted the OS's background execution grace — an honest,
+      // expected limit (see BackgroundExecutionService), not a real failure.
       const errorMessage: ChatMessage = {
-        text: friendlyErrorText(error),
+        text: expiredInBackground
+          ? "That answer was still going when the background time ran out. Reopen the app and ask again — it'll pick up faster with things warmed up."
+          : friendlyErrorText(error),
         isUser: false,
         timestamp: new Date(),
         isError: true,
@@ -321,6 +332,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
 
   const handleStop = (options?: { quiet?: boolean }) => {
     setIsThinking(false);
+    void BackgroundExecution.endBackgroundGrace();
     if (streamCancelRef.current) {
       streamCancelRef.current();
       if (responseRef.current && !options?.quiet) {
