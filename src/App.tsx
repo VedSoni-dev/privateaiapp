@@ -8,6 +8,7 @@ import { useFonts } from 'expo-font';
 import * as Memory from './services/MemoryService';
 import { initUsage } from './services/UsageService';
 import { initPurchases } from './services/PurchaseService';
+import { initNotifications } from './services/NotificationService';
 import { AppColors, Fonts } from './theme';
 import { OnboardingScreen, ChatScreen } from './screens';
 import { checkOnboardingDone } from './screens/OnboardingScreen';
@@ -15,6 +16,23 @@ import { ErrorBoundary } from './components';
 import { RootStackParamList } from './navigation/types';
 
 const Stack = createStackNavigator<RootStackParamList>();
+
+// Receives hand-offs from the Share Extension (privateai://share?text=...)
+// and, if we ever add other external triggers, anything else on this scheme.
+const linking = {
+  prefixes: ['privateai://'],
+  config: {
+    screens: {
+      Chat: {
+        path: 'share',
+        parse: {
+          sharedText: (text: string) => decodeURIComponent(text),
+        },
+      },
+      Onboarding: 'onboarding',
+    },
+  },
+};
 
 const App: React.FC = () => {
   const [initialRoute, setInitialRoute] = useState<'Onboarding' | 'Chat' | null>(null);
@@ -28,6 +46,7 @@ const App: React.FC = () => {
   });
 
   useEffect(() => {
+    initNotifications(); // sync, just registers the foreground handler
     const boot = async () => {
       const [done] = await Promise.all([
         checkOnboardingDone(),
@@ -48,7 +67,7 @@ const App: React.FC = () => {
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <StatusBar barStyle="dark-content" backgroundColor={AppColors.primaryDark} />
-        <NavigationContainer>
+        <NavigationContainer linking={linking}>
           <Stack.Navigator
             initialRouteName={initialRoute}
             screenOptions={{

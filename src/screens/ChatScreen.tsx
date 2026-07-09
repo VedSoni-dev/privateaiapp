@@ -23,6 +23,7 @@ import {
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppColors, Fonts } from '../theme';
 import { ChatMessageBubble, ChatMessage, ThinkingIndicator, PaywallModal } from '../components';
@@ -30,6 +31,8 @@ import { RootStackParamList } from '../navigation/types';
 import { prepareTurn, learnInBackground, streamTurn, type LearnedFact } from '../services/AgentService';
 import { getPersonalizedSuggestions, type SuggestionChip } from '../services/SuggestionService';
 import { purchasePro, restorePurchases } from '../services/PurchaseService';
+import { scheduleQuotaResetReminder } from '../services/NotificationService';
+import { addEventToCalendar } from '../services/CalendarService';
 import * as LiveActivity from '../services/LiveActivityService';
 import * as BackgroundExecution from '../services/BackgroundExecutionService';
 import * as SafeHaptics from '../services/HapticsService';
@@ -40,6 +43,7 @@ import { canSendMessage, recordMessage, getUsage, FREE_DAILY_LIMIT, initUsage } 
 
 type ChatScreenProps = {
   navigation: StackNavigationProp<RootStackParamList, 'Chat'>;
+  route: RouteProp<RootStackParamList, 'Chat'>;
 };
 
 const PANEL_WIDTH = Math.min(340, Dimensions.get('window').width * 0.85);
@@ -67,7 +71,7 @@ function friendlyErrorText(error: unknown): string {
   return "Something went wrong on our end. Try again — if it keeps happening, it's not you.";
 }
 
-export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
+export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
   const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
@@ -79,6 +83,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
   const [statusText, setStatusText] = useState('');
 
   const [showPaywall, setShowPaywall] = useState(false);
+  const [remindMeScheduled, setRemindMeScheduled] = useState(false);
   const [usage, setUsage] = useState(getUsage());
   // "Memory moment" — the transparency chip shown when the AI learns a fact.
   const [memoryMoment, setMemoryMoment] = useState<{ ids: string[]; label: string } | null>(null);
@@ -127,6 +132,32 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
       await Share.share({ message: text }).catch(() => {});
     }
   };
+
+  // Native "Add Event" dialog handles the actual date/time picking — these
+  // are just a reasonable starting point (tomorrow morning) the user can
+  // change freely before saving.
+  const addToCalendar = async (text: string) => {
+    const start = new Date();
+    start.setDate(start.getDate() + 1);
+    start.setHours(9, 0, 0, 0);
+    const end = new Date(start.getTime() + 60 * 60 * 1000);
+    const title = text.replace(/\s+/g, ' ').trim().slice(0, 60);
+
+    const result = await addEventToCalendar({ title, notes: text, startDate: start, endDate: end });
+    if (result === 'unavailable') {
+      Alert.alert('Calendar', "Couldn't add that — check calendar permissions in Settings.");
+    }
+  };
+
+  // Hand-off from the Share Extension (user shared text/a message from
+  // another app). Prefill the input rather than auto-sending — sending
+  // still costs a quota message, so let them confirm/edit the question first.
+  useEffect(() => {
+    const shared = route.params?.sharedText;
+    if (!shared) return;
+    setInputText(`About this:\n\n"${shared}"\n\n`);
+    navigation.setParams({ sharedText: undefined });
+  }, [route.params?.sharedText, navigation]);
 
   useEffect(() => {
     initUsage().then(() => setUsage(getUsage()));
@@ -470,12 +501,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
           { text: 'Resend', onPress: () => void handleResendMessage(index) },
           { text: 'Copy', onPress: () => void copyMessageText(message.text) },
           { text: 'Share', onPress: () => { Share.share({ message: message.text }).catch(() => {}); } },
+          { text: 'Add to Calendar', onPress: () => void addToCalendar(message.text) },
           { text: 'Cancel', style: 'cancel' as const },
         ]
       : [
           { text: 'Regenerate', onPress: () => void handleRegenerateMessage(index) },
           { text: 'Copy', onPress: () => void copyMessageText(message.text) },
           { text: 'Share', onPress: () => { Share.share({ message: message.text }).catch(() => {}); } },
+          { text: 'Add to Calendar', onPress: () => void addToCalendar(message.text) },
           { text: 'Cancel', style: 'cancel' as const },
         ];
     Alert.alert('Message', undefined, buttons);
@@ -744,6 +777,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation }) => {
             }
           });
         }}
+        onRemindMe={() => {
+          void scheduleQuotaResetReminder().then(ok => {
+            setRemindMeScheduled(ok);
+            if (!ok) Alert.alert('Reminders', "Couldn't schedule that — check notification permissions in Settings.");
+          });
+        }}
+        remindMeScheduled={remindMeScheduled}
         messagesUsed={usage.messages}
         limit={usage.limit}
       />

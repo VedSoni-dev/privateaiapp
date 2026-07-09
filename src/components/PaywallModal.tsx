@@ -20,6 +20,9 @@ interface Props {
   onClose: () => void;
   onSubscribe: () => void;
   onRestore: () => void;
+  /** Only offered when the user actually hit the daily wall (messagesUsed >= limit). */
+  onRemindMe?: () => void;
+  remindMeScheduled?: boolean;
   messagesUsed: number;
   limit: number;
 }
@@ -41,7 +44,7 @@ const FEATURES_PRO = [
 ];
 
 export const PaywallModal: React.FC<Props> = ({
-  visible, onClose, onSubscribe, onRestore, messagesUsed, limit,
+  visible, onClose, onSubscribe, onRestore, onRemindMe, remindMeScheduled, messagesUsed, limit,
 }) => (
   <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
     <SafeAreaView style={styles.safe}>
@@ -118,6 +121,20 @@ export const PaywallModal: React.FC<Props> = ({
         >
           <Text style={styles.restoreTxt}>Restore Purchases</Text>
         </TouchableOpacity>
+
+        {onRemindMe && messagesUsed >= limit && (
+          <TouchableOpacity
+            onPress={onRemindMe}
+            disabled={remindMeScheduled}
+            style={styles.remindBtn}
+            accessibilityRole="button"
+            accessibilityLabel="Remind me when my free messages reset"
+          >
+            <Text style={styles.remindTxt}>
+              {remindMeScheduled ? "✓ We'll remind you at reset" : '🔔 Remind me when it resets'}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         <View style={styles.legalLinks}>
           <TouchableOpacity
@@ -302,6 +319,8 @@ const styles = StyleSheet.create({
   },
   restoreBtn: { paddingVertical: 10 },
   restoreTxt: { fontSize: 14, color: AppColors.accentCyan, fontWeight: '600' },
+  remindBtn: { paddingVertical: 8, paddingHorizontal: 12 },
+  remindTxt: { fontSize: 13, color: AppColors.textSecondary, fontWeight: '600' },
   legalLinks: {
     flexDirection: 'row',
     alignItems: 'center',

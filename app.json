@@ -31,7 +31,25 @@
     },
     "plugins": [
       "expo-font",
-      "expo-live-activity"
+      "expo-live-activity",
+      "expo-notifications",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "Private AI adds events to your calendar only when you ask it to.",
+          "writeOnlyAccess": true,
+          "writeOnlyCalendarPermission": "Private AI adds events to your calendar only when you ask it to."
+        }
+      ],
+      [
+        "expo-share-extension",
+        {
+          "activationRules": [
+            { "type": "text" },
+            { "type": "url", "max": 1 }
+          ]
+        }
+      ]
     ]
   }
 }

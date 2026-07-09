@@ -36,6 +36,11 @@ iPhone app (Expo, src/)
 | `src/services/UsageService.ts` | Local usage cache + server sync. Server is source of truth |
 | `src/services/WebSearchService.ts` | Search client + heuristics for when to search; sends `x-search-token` |
 | `src/services/DeviceId.ts` | Random per-install ID; spoofable, quota is advisory until App Attest |
+| `src/services/LiveActivityService.ts` | Dynamic Island / lock-screen progress for in-flight answers |
+| `src/services/BackgroundExecutionService.ts` | Extends iOS's background-execution grace so streams survive backgrounding |
+| `src/services/NotificationService.ts` | Local-only notifications (quota-reset reminder; generic scheduler for future nudges) |
+| `src/services/CalendarService.ts` | Adds events via the OS's native "Add Event" dialog — write-only, never reads the calendar |
+| `src/ShareExtension.tsx` | Share Extension UI (separate JS bundle, entry: `index.share.js`) — hands shared text to the main app via `privateai://share` |
 | `server/index.js` | Express backend: rate limit, capacity guard, validation, usage gating/counting, SSE relay |
 | `worker/src/index.ts` | Search Worker + cron keep-warm ping for Render free tier |
 
@@ -92,7 +97,10 @@ npx eas submit --platform ios
 Done: server-side usage counting, worker auth (code-ready, secret not set),
 rate limiting + capacity guard + input validation, accessibility labels +
 44pt targets + AA contrast, FTC AI disclosure (ChatScreen input area) and
-subscription cancel disclosure (PaywallModal).
+subscription cancel disclosure (PaywallModal), Dynamic Island Live Activity
++ background-execution grace, Share Extension (share text/a URL into the
+app from anywhere, e.g. selected Messages text), local notifications
+(quota-reset reminder), calendar event creation from any message.
 
 Open, in priority order:
 1. **Real IAP — code is wired, config is not**: `PurchaseService.ts` wraps
@@ -124,3 +132,17 @@ Open, in priority order:
   lightening any text color on the cream background.
 - Old TestFlight builds still call `/v1/usage/record` and don't send
   `x-search-token`; keep both compatible until those builds are gone.
+- `expo-share-extension`'s `openHostApp(path)` opens the app's own configured
+  `scheme` (`privateai://`), not a fixed library scheme — confirmed from the
+  library's own example app.json, not documented in its README. The query
+  key used when calling `openHostApp` must exactly match the `parse` key in
+  App.tsx's `linking.config.screens.Chat` (currently `sharedText`).
+- EAS free tier is 15 builds/month; only native-dependency or native-config
+  changes cost a build. Batch multiple native additions into one build
+  rather than one-at-a-time — see git history around Notifications/Calendar/
+  Share Extension landing together.
+- iOS extension sandboxing is absolute: no iMessage extension, custom
+  keyboard, or Share Extension can read another app's data (e.g. Messages
+  thread history) — only what the user explicitly selects/shares. Don't
+  propose "read the conversation" features; the Share Extension covers the
+  legitimate version of that ask.

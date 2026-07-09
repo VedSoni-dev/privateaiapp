@@ -1,4 +1,4 @@
 export type RootStackParamList = {
   Onboarding: undefined;
-  Chat: undefined;
+  Chat: { sharedText?: string } | undefined;
 };
