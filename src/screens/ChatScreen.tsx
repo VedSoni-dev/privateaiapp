@@ -26,10 +26,11 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppColors, Fonts } from '../theme';
-import { ChatMessageBubble, ChatMessage, ThinkingIndicator, PaywallModal } from '../components';
+import { ChatMessageBubble, ChatMessage, ThinkingIndicator, PaywallModal, MemoryModal } from '../components';
 import { RootStackParamList } from '../navigation/types';
 import { prepareTurn, learnInBackground, streamTurn, type LearnedFact } from '../services/AgentService';
 import { getPersonalizedSuggestions, type SuggestionChip } from '../services/SuggestionService';
+import { getProactiveNudge } from '../services/ProactiveNudgeService';
 import { purchasePro, restorePurchases } from '../services/PurchaseService';
 import { scheduleQuotaResetReminder } from '../services/NotificationService';
 import { addEventToCalendar } from '../services/CalendarService';
@@ -83,10 +84,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
   const [statusText, setStatusText] = useState('');
 
   const [showPaywall, setShowPaywall] = useState(false);
+  const [showMemoryModal, setShowMemoryModal] = useState(false);
   const [remindMeScheduled, setRemindMeScheduled] = useState(false);
   const [usage, setUsage] = useState(getUsage());
   // "Memory moment" — the transparency chip shown when the AI learns a fact.
-  const [memoryMoment, setMemoryMoment] = useState<{ ids: string[]; label: string } | null>(null);
+  const [memoryMoment, setMemoryMoment] = useState<{ kind: 'learned' | 'dreamed' | 'nudge'; ids: string[]; label: string } | null>(null);
   const memoryMomentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [personalChips, setPersonalChips] = useState<SuggestionChip[] | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -163,7 +165,13 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
     initUsage().then(() => setUsage(getUsage()));
     // Personalized empty-state chips, generated from memory (cached daily).
     getPersonalizedSuggestions().then(chips => { if (chips) setPersonalChips(chips); }).catch(() => {});
+    // Slight delay so it doesn't flash in before the user's oriented, and
+    // doesn't visually collide with anything else appearing at mount.
+    const nudgeTimer = setTimeout(() => {
+      getProactiveNudge().then(label => { if (label) showNudge(label); }).catch(() => {});
+    }, 1500);
     return () => {
+      clearTimeout(nudgeTimer);
       if (memoryMomentTimer.current) clearTimeout(memoryMomentTimer.current);
     };
   }, []);
@@ -175,10 +183,17 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
         ? 'Tidied up my memories'
         : '';
     if (!label) return;
-    setMemoryMoment({ ids: added.map(f => f.id), label });
+    setMemoryMoment({ kind: added.length ? 'learned' : 'dreamed', ids: added.map(f => f.id), label });
     AccessibilityInfo.announceForAccessibility(label);
     if (memoryMomentTimer.current) clearTimeout(memoryMomentTimer.current);
     memoryMomentTimer.current = setTimeout(() => setMemoryMoment(null), 8000);
+  };
+
+  const showNudge = (label: string) => {
+    setMemoryMoment({ kind: 'nudge', ids: [], label });
+    AccessibilityInfo.announceForAccessibility(label);
+    if (memoryMomentTimer.current) clearTimeout(memoryMomentTimer.current);
+    memoryMomentTimer.current = setTimeout(() => setMemoryMoment(null), 10000);
   };
 
   const forgetMemoryMoment = () => {
@@ -380,44 +395,6 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
       setStatusText('');
       setIsGenerating(false);
     }
-  };
-
-  const showMemory = async () => {
-    const facts = Memory.getFacts();
-    if (facts.length === 0) {
-      Alert.alert(
-        'Memory',
-        "I haven't learned anything about you yet. As we chat, I'll remember durable details (your name, projects, preferences) — all stored only on this phone.",
-      );
-      return;
-    }
-    const list = facts
-      .slice(0, 20)
-      .map(f => `• ${f.text}`)
-      .join('\n');
-    Alert.alert(
-      `Memory (${facts.length})`,
-      `What I remember about you — stored only on this device:\n\n${list}`,
-      [
-        { text: 'Close', style: 'cancel' },
-        {
-          text: 'Forget everything',
-          style: 'destructive',
-          onPress: () => {
-            Alert.alert('Forget everything?', 'This permanently clears all memories.', [
-              { text: 'Cancel', style: 'cancel' },
-              {
-                text: 'Forget',
-                style: 'destructive',
-                onPress: () => {
-                  void Memory.clearAll();
-                },
-              },
-            ]);
-          },
-        },
-      ],
-    );
   };
 
   const handleNewChat = () => {
@@ -629,7 +606,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
           {memoryMoment && (
             <View style={styles.memoryMomentRow}>
               <Text style={styles.memoryMomentText} numberOfLines={1}>
-                {memoryMoment.ids.length > 0 ? '🧠 ' : '🌙 '}{memoryMoment.label}
+                {memoryMoment.kind === 'learned' ? '🧠 ' : memoryMoment.kind === 'dreamed' ? '🌙 ' : '💡 '}
+                {memoryMoment.label}
               </Text>
               {memoryMoment.ids.length > 0 && (
                 <TouchableOpacity
@@ -750,6 +728,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
       >
         <Pressable style={styles.flex1} onPress={closeMenu} />
       </Animated.View>
+
+      <MemoryModal visible={showMemoryModal} onClose={() => setShowMemoryModal(false)} />
 
       <PaywallModal
         visible={showPaywall}
@@ -894,7 +874,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
               accessibilityLabel="What AI remembers about you"
               onPress={() => {
                 closeMenu();
-                showMemory();
+                setShowMemoryModal(true);
               }}
             >
               <Text style={styles.panelRowIcon}>🛡️</Text>

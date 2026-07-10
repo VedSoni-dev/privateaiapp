@@ -34,9 +34,31 @@ const STOPWORDS = new Set(
   ).split(' '),
 );
 
+export type MemoryCategory = 'person' | 'project' | 'goal' | 'preference' | 'other';
+
+export const CATEGORY_ORDER: MemoryCategory[] = ['person', 'project', 'goal', 'preference', 'other'];
+
+export const CATEGORY_LABELS: Record<MemoryCategory, string> = {
+  person: 'People',
+  project: 'Projects',
+  goal: 'Goals & Dates',
+  preference: 'Preferences',
+  other: 'Other',
+};
+
+function parseCategory(tag: string | undefined): MemoryCategory {
+  const t = (tag || '').toLowerCase();
+  if (t.startsWith('person')) return 'person';
+  if (t.startsWith('project')) return 'project';
+  if (t.startsWith('goal')) return 'goal';
+  if (t.startsWith('preference')) return 'preference';
+  return 'other';
+}
+
 export interface MemoryFact {
   id: string;
   text: string;
+  category: MemoryCategory;
   strength: number;
   createdAt: number;
   lastSeen: number;
@@ -91,13 +113,24 @@ function genId(): string {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
-function parseBullets(text: string): string[] {
+interface ParsedFact {
+  text: string;
+  category: MemoryCategory;
+}
+
+// Parses "[Category] fact text" bullets — falls back to 'other' if the model
+// omits the tag, rather than dropping the fact.
+function parseBullets(text: string): ParsedFact[] {
   return text
     .split('\n')
     .map(l => l.trim())
     .filter(l => /^[-*•]/.test(l))
     .map(l => l.replace(/^[-*•]\s*/, '').trim())
-    .filter(l => l && l.toUpperCase() !== 'NONE' && l.length < 240);
+    .filter(l => l && l.toUpperCase() !== 'NONE' && l.length < 240)
+    .map(l => {
+      const m = l.match(/^\[(\w+)\]\s*(.+)$/);
+      return m ? { text: m[2].trim(), category: parseCategory(m[1]) } : { text: l, category: 'other' as MemoryCategory };
+    });
 }
 
 /* ── A small non-streaming call to the backend model ── */
@@ -153,6 +186,7 @@ export async function init(): Promise<void> {
     if (f.strength == null) f.strength = 1;
     if (!f.createdAt) f.createdAt = now;
     if (!f.lastSeen) f.lastSeen = f.createdAt;
+    if (!f.category) f.category = 'other'; // facts saved before categorization existed
   }
   if (typeof store.extractsSinceDream !== 'number') store.extractsSinceDream = 0;
   forgetWeak();
@@ -171,6 +205,20 @@ export function getFacts(): Array<MemoryFact & { effective: number; fading: bool
 
 export function count(): number {
   return store.facts.length;
+}
+
+export type DisplayFact = MemoryFact & { effective: number; fading: boolean };
+
+/** getFacts(), grouped and ordered for the "What AI remembers" screen. */
+export function getFactsByCategory(): { category: MemoryCategory; label: string; facts: DisplayFact[] }[] {
+  const all = getFacts();
+  return CATEGORY_ORDER
+    .map(category => ({
+      category,
+      label: CATEGORY_LABELS[category],
+      facts: all.filter(f => (f.category || 'other') === category),
+    }))
+    .filter(group => group.facts.length > 0);
 }
 
 /** Return the top relevant facts for a context string — used by the agentic tool layer. */
@@ -239,18 +287,22 @@ function forgetWeak(): string[] {
 }
 
 /* ── writes ── */
-function addFacts(texts: string[]): MemoryFact[] {
+function addFacts(items: ParsedFact[]): MemoryFact[] {
   const added: MemoryFact[] = [];
-  for (const text of texts) {
+  for (const { text, category } of items) {
     const hit = store.facts.find(f => similar(f.text, text));
     if (hit) {
       hit.strength = (hit.strength || 1) + 1;
       hit.lastSeen = Date.now();
       if (text.length > hit.text.length + 8) hit.text = text;
+      // A fresh classification is usually better than the original guess,
+      // but don't downgrade a specific category to the 'other' catch-all.
+      if (category !== 'other') hit.category = category;
     } else {
       const fact: MemoryFact = {
         id: genId(),
         text,
+        category,
         strength: 1,
         createdAt: Date.now(),
         lastSeen: Date.now(),
@@ -286,7 +338,11 @@ const EXTRACT_SYSTEM =
   'their job/projects, preferences, goals, relationships, pets, important dates, or how they like to be helped. ' +
   "Write each as a short third-person statement (e.g. 'Is a solo founder building an app called Fern'). " +
   'Ignore small talk, one-off questions, and anything trivial. ' +
-  "Output each fact on its own line starting with '- '. If there is nothing worth saving, output exactly: NONE";
+  "Output each fact on its own line as '- [Category] fact text', where Category is exactly one of: " +
+  'Person (names, relationships, who someone is), Project (what they build/work on), ' +
+  'Goal (deadlines, plans, upcoming events, things they are working toward), ' +
+  'Preference (tastes, habits, how they like to be helped), Other (anything else worth keeping). ' +
+  'If there is nothing worth saving, output exactly: NONE';
 
 export async function learnFromExchange(
   userText: string,
@@ -312,7 +368,8 @@ const DREAM_SYSTEM =
   'You are given a list of remembered facts about a user. Some may be duplicates, outdated, contradictory, or trivial. ' +
   'Rewrite the list into a clean, deduplicated set of the most important, current facts. ' +
   'Merge related facts. Drop redundancy and trivia. Keep the user\'s voice and specifics. ' +
-  "Output one fact per line starting with '- ', at most 40 lines. If a later fact contradicts an earlier one, keep the later.";
+  "Output one fact per line as '- [Category] fact text' (Category: Person, Project, Goal, Preference, or Other), " +
+  'at most 40 lines. If a later fact contradicts an earlier one, keep the later.';
 
 export async function dream(): Promise<{ changed: boolean; before: number; after: number }> {
   if (store.facts.length < 6) {
@@ -320,7 +377,7 @@ export async function dream(): Promise<{ changed: boolean; before: number; after
   }
   const before = store.facts.length;
   const list = getFacts()
-    .map(f => `- ${f.text}`)
+    .map(f => `- [${CATEGORY_LABELS[f.category || 'other']}] ${f.text}`)
     .join('\n');
   const out = await ask(DREAM_SYSTEM, list, { temperature: 0.2, maxTokens: 900 });
   const cleaned = parseBullets(out);
@@ -328,11 +385,12 @@ export async function dream(): Promise<{ changed: boolean; before: number; after
 
   const old = store.facts;
   const now = Date.now();
-  store.facts = cleaned.slice(0, 40).map(text => {
+  store.facts = cleaned.slice(0, 40).map(({ text, category }) => {
     const match = old.find(f => similar(f.text, text));
     return {
       id: match?.id || genId(),
       text,
+      category: category !== 'other' ? category : (match?.category ?? 'other'),
       strength: (match?.strength || 1) + 1,
       createdAt: match?.createdAt || now,
       lastSeen: match?.lastSeen || now,
