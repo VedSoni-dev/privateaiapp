@@ -8,7 +8,7 @@
     "start:clear": "expo start -c",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "test": "jest",
+    "test": "node --test server/logic.test.js",
     "test:api": "node scripts/test-api.mjs",
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx"
   },

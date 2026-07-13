@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { spawn } from 'node:child_process';
+import { toDateKey, usageSummary, clampNumber, validateMessages, memoryRecord, memoryGet } from './logic.js';
 
 const PORT = process.env.PORT || 3000;
 const PROXY_PORT = Number(process.env.PRIVATEMODE_PROXY_PORT || 8080);
@@ -56,30 +57,16 @@ async function waitForProxy(timeoutMs = 30_000) {
   return false;
 }
 
-// The client date is only honored within +/- 1 day of server time (timezone
-// tolerance). Anything further is a spoof attempt to reset the daily counter.
-function toDateKey(input) {
-  const serverDate = new Date().toISOString().slice(0, 10);
-  if (typeof input !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(input)) return serverDate;
-  const diffMs = Math.abs(new Date(`${input}T00:00:00Z`) - new Date(`${serverDate}T00:00:00Z`));
-  return diffMs <= 26 * 60 * 60 * 1000 ? input : serverDate;
-}
-
-function usageSummary(date, messages, isPro, source = 'memory') {
-  return {
-    date,
-    messages,
-    isPro,
-    limit: FREE_DAILY_LIMIT,
-    remaining: isPro ? null : Math.max(0, FREE_DAILY_LIMIT - messages),
-    source,
-  };
-}
-
 function deviceKey(req) {
   const deviceId = req.header('x-device-id');
   if (!deviceId) return null;
   return deviceId.trim();
+}
+
+// Binds usageSummary's imported (now limit-agnostic) signature to this
+// server's configured FREE_DAILY_LIMIT, so call sites don't all need it threaded through.
+function summarize(date, messages, isPro, source = 'memory') {
+  return usageSummary(date, messages, isPro, FREE_DAILY_LIMIT, source);
 }
 
 function redisEnabled() {
@@ -116,30 +103,10 @@ async function redisCommand(command, args = [], init = {}) {
 
 const memoryUsage = new Map();
 
-function memoryRecord(deviceId, dateKey, delta = 0, isPro) {
-  const current = memoryUsage.get(deviceId) || { date: dateKey, messages: 0, isPro: false };
-  const next = {
-    date: dateKey,
-    messages: Math.max(0, current.date === dateKey ? current.messages + delta : delta),
-    isPro: typeof isPro === 'boolean' ? isPro : current.isPro,
-  };
-  memoryUsage.set(deviceId, next);
-  return next;
-}
-
-function memoryGet(deviceId, dateKey) {
-  const current = memoryUsage.get(deviceId) || { date: dateKey, messages: 0, isPro: false };
-  const next = current.date === dateKey
-    ? current
-    : { date: dateKey, messages: 0, isPro: current.isPro };
-  memoryUsage.set(deviceId, next);
-  return next;
-}
-
 async function usageGetRecord(deviceId, dateKey) {
   if (!redisEnabled()) {
-    const record = memoryGet(deviceId, dateKey);
-    return usageSummary(dateKey, record.messages, record.isPro, 'memory');
+    const record = memoryGet(memoryUsage, deviceId, dateKey);
+    return summarize(dateKey, record.messages, record.isPro, 'memory');
   }
 
   const usageKey = `usage:${deviceId}:${dateKey}`;
@@ -150,13 +117,13 @@ async function usageGetRecord(deviceId, dateKey) {
   ]);
   const messages = Number(messagesRaw || 0);
   const isPro = String(proRaw || '') === '1' || String(proRaw || '').toLowerCase() === 'true';
-  return usageSummary(dateKey, Number.isFinite(messages) ? messages : 0, isPro, 'redis');
+  return summarize(dateKey, Number.isFinite(messages) ? messages : 0, isPro, 'redis');
 }
 
 async function usageIncrement(deviceId, dateKey) {
   if (!redisEnabled()) {
-    const record = memoryRecord(deviceId, dateKey, 1);
-    return usageSummary(dateKey, record.messages, record.isPro, 'memory');
+    const record = memoryRecord(memoryUsage, deviceId, dateKey, 1);
+    return summarize(dateKey, record.messages, record.isPro, 'memory');
   }
 
   const usageKey = `usage:${deviceId}:${dateKey}`;
@@ -168,12 +135,12 @@ async function usageIncrement(deviceId, dateKey) {
   await redisCommand('expire', [usageKey, 60 * 60 * 48]).catch(() => {});
   const messages = Number(messagesRaw || 0);
   const isPro = String(proRaw || '') === '1' || String(proRaw || '').toLowerCase() === 'true';
-  return usageSummary(dateKey, Number.isFinite(messages) ? messages : 0, isPro, 'redis');
+  return summarize(dateKey, Number.isFinite(messages) ? messages : 0, isPro, 'redis');
 }
 
 async function usageDecrement(deviceId, dateKey) {
   if (!redisEnabled()) {
-    memoryRecord(deviceId, dateKey, -1);
+    memoryRecord(memoryUsage, deviceId, dateKey, -1);
     return;
   }
   await redisCommand('decr', [`usage:${deviceId}:${dateKey}`]);
@@ -197,15 +164,15 @@ async function callsIncrement(deviceId, dateKey) {
 
 async function usageSetPro(deviceId, dateKey, isPro) {
   if (!redisEnabled()) {
-    const record = memoryGet(deviceId, dateKey);
+    const record = memoryGet(memoryUsage, deviceId, dateKey);
     memoryUsage.set(deviceId, { ...record, isPro });
-    return usageSummary(dateKey, record.messages, isPro, 'memory');
+    return summarize(dateKey, record.messages, isPro, 'memory');
   }
 
   const entKey = `ent:${deviceId}`;
   await redisCommand('set', [entKey, isPro ? '1' : '0']);
   const usage = await usageGetRecord(deviceId, dateKey);
-  return usageSummary(usage.date, usage.messages, isPro, 'redis');
+  return summarize(usage.date, usage.messages, isPro, 'redis');
 }
 
 let inFlightUpstream = 0;
@@ -333,45 +300,6 @@ app.post('/v1/usage/pro', rateLimit, async (req, res) => {
   }
 });
 
-function clampNumber(value, fallback, min, max) {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return fallback;
-  return Math.min(max, Math.max(min, parsed));
-}
-
-function validateMessages(messages) {
-  if (!Array.isArray(messages) || messages.length === 0) {
-    return { ok: false, error: 'messages array required' };
-  }
-  if (messages.length > MAX_MESSAGES) {
-    return { ok: false, error: `too many messages; max ${MAX_MESSAGES}` };
-  }
-
-  let totalChars = 0;
-  const cleaned = [];
-  for (const message of messages) {
-    const role = message?.role;
-    const content = typeof message?.content === 'string' ? message.content : '';
-    if (!['system', 'user', 'assistant', 'tool'].includes(role)) {
-      return { ok: false, error: 'invalid message role' };
-    }
-    if (content.length > MAX_MESSAGE_CHARS) {
-      return { ok: false, error: `message too long; max ${MAX_MESSAGE_CHARS} chars` };
-    }
-    totalChars += content.length;
-    if (totalChars > MAX_TOTAL_CHARS) {
-      return { ok: false, error: `conversation too long; max ${MAX_TOTAL_CHARS} chars` };
-    }
-    cleaned.push({
-      role,
-      content,
-      ...(message.tool_call_id ? { tool_call_id: message.tool_call_id } : {}),
-      ...(Array.isArray(message.tool_calls) ? { tool_calls: message.tool_calls } : {}),
-    });
-  }
-
-  return { ok: true, messages: cleaned };
-}
 
 async function fetchUpstreamWithRetry(body, attempts = 3) {
   let lastError;
@@ -405,7 +333,11 @@ app.post('/v1/chat', rateLimit, capacityGuard, async (req, res) => {
     tools,
   } = req.body || {};
 
-  const validated = validateMessages(messages);
+  const validated = validateMessages(messages, {
+    maxMessages: MAX_MESSAGES,
+    maxMessageChars: MAX_MESSAGE_CHARS,
+    maxTotalChars: MAX_TOTAL_CHARS,
+  });
   if (!validated.ok) return res.status(400).json({ error: validated.error });
 
   const deviceId = deviceKey(req);
@@ -433,7 +365,7 @@ app.post('/v1/chat', rateLimit, capacityGuard, async (req, res) => {
         }
         return res.status(402).json({
           error: 'daily message limit reached',
-          usage: usageSummary(dateKey, Math.min(usage.messages, FREE_DAILY_LIMIT), usage.isPro, usage.source),
+          usage: summarize(dateKey, Math.min(usage.messages, FREE_DAILY_LIMIT), usage.isPro, usage.source),
         });
       }
     } catch (error) {

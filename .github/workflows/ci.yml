@@ -19,6 +19,7 @@ jobs:
       - run: npm run lint
       # server/index.js is plain Node — at least catch syntax errors
       - run: node --check server/index.js
+      - run: npm test
 
   worker:
     runs-on: ubuntu-latest

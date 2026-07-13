@@ -42,6 +42,7 @@ iPhone app (Expo, src/)
 | `src/services/CalendarService.ts` | Adds events via the OS's native "Add Event" dialog — write-only, never reads the calendar |
 | `src/ShareExtension.tsx` | Share Extension UI (separate JS bundle, entry: `index.share.js`) — hands shared text to the main app via `privateai://share` |
 | `server/index.js` | Express backend: rate limit, capacity guard, validation, usage gating/counting, SSE relay |
+| `server/logic.js` | Pure usage/entitlement/validation logic extracted from index.js so it's testable — index.js has import-time side effects (spawns a subprocess, exits without an API key) that make it unsafe to import directly |
 | `worker/src/index.ts` | Search Worker + cron keep-warm ping for Render free tier |
 
 ## Usage / entitlement model (money lives here — be careful)
@@ -80,7 +81,8 @@ or search silently breaks for them).
 npm start                 # Expo dev server (Expo Go)
 npx tsc --noEmit          # typecheck — run after any src/ change
 npm run lint
-npm run test:api          # backend smoke test (scripts/test-api.mjs)
+npm test                  # server/logic.test.js (node --test) — usage/entitlement/validation logic
+npm run test:api          # backend smoke test against a live server (scripts/test-api.mjs)
 
 # Backend: deploys automatically when the branch on Render is pushed (Render dashboard)
 # Worker:
@@ -100,7 +102,10 @@ rate limiting + capacity guard + input validation, accessibility labels +
 subscription cancel disclosure (PaywallModal), Dynamic Island Live Activity
 + background-execution grace, Share Extension (share text/a URL into the
 app from anywhere, e.g. selected Messages text), local notifications
-(quota-reset reminder), calendar event creation from any message.
+(quota-reset reminder), calendar event creation from any message, memory
+categorization + a real Memory screen + conservative proactive nudges,
+real unit tests for the server's usage/entitlement/validation logic
+(`server/logic.js` + `server/logic.test.js`, run via `npm test`).
 
 Open, in priority order:
 1. **Real IAP — code is wired, config is not**: `PurchaseService.ts` wraps
@@ -119,7 +124,6 @@ Open, in priority order:
    `expo-widgets`. Started on send, completed/errored with the stream.
 4. Crash reporting (`sentry-expo`) — needs a DSN from the user.
 5. App Attest / DeviceCheck to make device quotas non-spoofable.
-6. Real tests (jest isn't installed despite the `test` script).
 
 ## Gotchas
 
