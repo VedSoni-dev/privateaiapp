@@ -9,7 +9,7 @@ import * as Memory from './services/MemoryService';
 import { initUsage } from './services/UsageService';
 import { initPurchases } from './services/PurchaseService';
 import { initNotifications } from './services/NotificationService';
-import { AppColors, Fonts } from './theme';
+import { ThemeProvider, useTheme } from './theme';
 import { OnboardingScreen, ChatScreen } from './screens';
 import { checkOnboardingDone } from './screens/OnboardingScreen';
 import { ErrorBoundary } from './components';
@@ -34,7 +34,8 @@ const linking = {
   },
 };
 
-const App: React.FC = () => {
+const AppInner: React.FC = () => {
+  const { colors, mode } = useTheme();
   const [initialRoute, setInitialRoute] = useState<'Onboarding' | 'Chat' | null>(null);
 
   // Satoshi is loaded at runtime via expo-font so the app runs in Expo Go with
@@ -60,19 +61,19 @@ const App: React.FC = () => {
   }, []);
 
   if (!initialRoute || (!fontsLoaded && !fontError)) {
-    return <View style={{ flex: 1, backgroundColor: AppColors.primaryDark }} />;
+    return <View style={{ flex: 1, backgroundColor: colors.primaryDark }} />;
   }
 
   return (
     <ErrorBoundary>
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <StatusBar barStyle="dark-content" backgroundColor={AppColors.primaryDark} />
+        <StatusBar barStyle={mode === 'dark' ? 'light-content' : 'dark-content'} backgroundColor={colors.primaryDark} />
         <NavigationContainer linking={linking}>
           <Stack.Navigator
             initialRouteName={initialRoute}
             screenOptions={{
               headerShown: false,
-              cardStyle: { backgroundColor: AppColors.primaryDark },
+              cardStyle: { backgroundColor: colors.primaryDark },
               ...TransitionPresets.SlideFromRightIOS,
             }}
           >
@@ -84,5 +85,11 @@ const App: React.FC = () => {
     </ErrorBoundary>
   );
 };
+
+const App: React.FC = () => (
+  <ThemeProvider>
+    <AppInner />
+  </ThemeProvider>
+);
 
 export default App;

@@ -1,12 +1,14 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import { View, Text, Animated, StyleSheet } from 'react-native';
-import { AppColors, Fonts } from '../theme';
+import { Fonts, useTheme, type AppColorsType } from '../theme';
 
 interface Props {
   label?: string;
 }
 
 export const ThinkingIndicator: React.FC<Props> = ({ label = 'Thinking' }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const dot1 = useRef(new Animated.Value(0.3)).current;
   const dot2 = useRef(new Animated.Value(0.3)).current;
   const dot3 = useRef(new Animated.Value(0.3)).current;
@@ -43,7 +45,7 @@ export const ThinkingIndicator: React.FC<Props> = ({ label = 'Thinking' }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColorsType) => StyleSheet.create({
   container: {
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -59,7 +61,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    color: AppColors.textMuted,
+    color: colors.textMuted,
     fontFamily: Fonts.sans,
   },
   dots: {
@@ -71,6 +73,6 @@ const styles = StyleSheet.create({
     width: 5,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: AppColors.textMuted,
+    backgroundColor: colors.textMuted,
   },
 });

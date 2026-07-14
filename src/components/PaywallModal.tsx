@@ -9,7 +9,7 @@ import {
   ScrollView,
   Linking,
 } from 'react-native';
-import { AppColors, Fonts } from '../theme';
+import { Fonts, useTheme, type AppColorsType } from '../theme';
 
 // App Store guideline 3.1.2: paywalls must link Terms of Use and Privacy Policy.
 const TERMS_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
@@ -45,7 +45,10 @@ const FEATURES_PRO = [
 
 export const PaywallModal: React.FC<Props> = ({
   visible, onClose, onSubscribe, onRestore, onRemindMe, remindMeScheduled, messagesUsed, limit,
-}) => (
+}) => {
+  const { colors } = useTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
+  return (
   <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.scroll} bounces={false}>
@@ -167,10 +170,11 @@ export const PaywallModal: React.FC<Props> = ({
       </ScrollView>
     </SafeAreaView>
   </Modal>
-);
+  );
+};
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: AppColors.primaryDark },
+const createStyles = (colors: AppColorsType) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: colors.primaryDark },
   scroll: { paddingHorizontal: 24, paddingBottom: 40, alignItems: 'center' },
   closeBtn: {
     alignSelf: 'flex-end',
@@ -178,20 +182,20 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: AppColors.surfaceCard,
+    backgroundColor: colors.surfaceCard,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 8,
     marginBottom: 4,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: AppColors.border,
+    borderColor: colors.border,
   },
-  closeTxt: { fontSize: 14, color: AppColors.textSecondary, fontWeight: '600' },
+  closeTxt: { fontSize: 14, color: colors.textSecondary, fontWeight: '600' },
   iconRing: {
     width: 80,
     height: 80,
     borderRadius: 26,
-    backgroundColor: AppColors.accentCyan + '16',
+    backgroundColor: colors.accentCyan + '16',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
@@ -201,13 +205,13 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.satoshi,
     fontSize: 26,
     lineHeight: 34,
-    color: AppColors.textPrimary,
+    color: colors.textPrimary,
     textAlign: 'center',
     marginBottom: 10,
   },
   sub: {
     fontSize: 15,
-    color: AppColors.textSecondary,
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 28,
@@ -216,18 +220,18 @@ const styles = StyleSheet.create({
   planCard: {
     width: '100%',
     padding: 20,
-    backgroundColor: AppColors.surfaceCard,
+    backgroundColor: colors.surfaceCard,
     borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: AppColors.border,
+    borderColor: colors.border,
   },
   planCardPro: {
-    backgroundColor: AppColors.accentCyan,
-    borderColor: AppColors.accentCyan,
+    backgroundColor: colors.accentCyan,
+    borderColor: colors.accentCyan,
   },
   proBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: AppColors.surfaceCard + '26',
+    backgroundColor: colors.surfaceCard + '26',
     paddingHorizontal: 9,
     paddingVertical: 3,
     borderRadius: 6,
@@ -236,16 +240,16 @@ const styles = StyleSheet.create({
   proBadgeTxt: {
     fontSize: 10,
     fontWeight: '800',
-    color: AppColors.surfaceCard,
+    color: colors.surfaceCard,
     letterSpacing: 0.8,
   },
   planName: {
     fontSize: 17,
     fontWeight: '700',
-    color: AppColors.textPrimary,
+    color: colors.textPrimary,
     marginBottom: 2,
   },
-  planNamePro: { color: AppColors.surfaceCard },
+  planNamePro: { color: colors.surfaceCard },
   priceRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
@@ -255,12 +259,12 @@ const styles = StyleSheet.create({
   planPrice: {
     fontFamily: Fonts.satoshi,
     fontSize: 32,
-    color: AppColors.textPrimary,
+    color: colors.textPrimary,
     marginBottom: 14,
   },
-  planPricePro: { color: AppColors.surfaceCard },
-  pricePer: { fontSize: 14, color: AppColors.textSecondary, marginBottom: 14 },
-  pricePerPro: { color: AppColors.surfaceCard },
+  planPricePro: { color: colors.surfaceCard },
+  pricePer: { fontSize: 14, color: colors.textSecondary, marginBottom: 14 },
+  pricePerPro: { color: colors.surfaceCard },
   featureRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -269,35 +273,35 @@ const styles = StyleSheet.create({
   },
   featureCheck: {
     fontSize: 13,
-    color: AppColors.accentCyan,
+    color: colors.accentCyan,
     fontWeight: '700',
     marginTop: 1,
   },
   featureCheckPro: {
     fontSize: 13,
-    color: AppColors.surfaceCard,
+    color: colors.surfaceCard,
     fontWeight: '700',
     marginTop: 1,
   },
   featureTxt: {
     fontSize: 14,
-    color: AppColors.textPrimary,
+    color: colors.textPrimary,
     flex: 1,
     lineHeight: 20,
   },
   featureTxtPro: {
     fontSize: 14,
-    color: AppColors.surfaceCard,
+    color: colors.surfaceCard,
     flex: 1,
     lineHeight: 20,
   },
   cta: {
     width: '100%',
     paddingVertical: 17,
-    backgroundColor: AppColors.accentCyan,
+    backgroundColor: colors.accentCyan,
     borderRadius: 16,
     alignItems: 'center',
-    shadowColor: AppColors.accentCyan,
+    shadowColor: colors.accentCyan,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
@@ -307,28 +311,28 @@ const styles = StyleSheet.create({
   ctaTxt: {
     fontSize: 17,
     fontWeight: '700',
-    color: AppColors.surfaceCard,
+    color: colors.surfaceCard,
     letterSpacing: 0.2,
   },
   legal: {
     fontSize: 11.5,
-    color: AppColors.textMuted,
+    color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 17,
     marginBottom: 16,
   },
   restoreBtn: { paddingVertical: 10 },
-  restoreTxt: { fontSize: 14, color: AppColors.accentCyan, fontWeight: '600' },
+  restoreTxt: { fontSize: 14, color: colors.accentCyan, fontWeight: '600' },
   remindBtn: { paddingVertical: 8, paddingHorizontal: 12 },
-  remindTxt: { fontSize: 13, color: AppColors.textSecondary, fontWeight: '600' },
+  remindTxt: { fontSize: 13, color: colors.textSecondary, fontWeight: '600' },
   legalLinks: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     marginBottom: 6,
   },
-  legalLinkTxt: { fontSize: 12, color: AppColors.textMuted, textDecorationLine: 'underline' },
-  legalLinkDot: { fontSize: 12, color: AppColors.textMuted },
+  legalLinkTxt: { fontSize: 12, color: colors.textMuted, textDecorationLine: 'underline' },
+  legalLinkDot: { fontSize: 12, color: colors.textMuted },
   maybeLater: { paddingVertical: 8 },
-  maybeLaterTxt: { fontSize: 14, color: AppColors.textMuted },
+  maybeLaterTxt: { fontSize: 14, color: colors.textMuted },
 });

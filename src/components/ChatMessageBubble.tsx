@@ -1,7 +1,76 @@
-import React, { memo } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import React, { memo, useMemo, useState } from 'react';
+import { View, Text, StyleSheet, Pressable, TouchableOpacity } from 'react-native';
 import Markdown from 'react-native-markdown-display';
-import { AppColors, Fonts } from '../theme';
+import { Fonts, useTheme, type AppColorsType } from '../theme';
+
+async function copyToClipboard(text: string): Promise<void> {
+  try {
+    // Lazily required, matching this app's native-module convention.
+    const Clipboard = require('expo-clipboard');
+    await Clipboard.setStringAsync(text);
+  } catch {
+    /* clipboard unavailable — silently no-op rather than crash */
+  }
+}
+
+// A code block gets its own copy button (standard for any serious AI chat
+// app) — separate component so each block tracks its own "Copied" flash
+// without re-rendering the whole message.
+const CodeBlock: React.FC<{ content: string }> = ({ content }) => {
+  const { colors } = useTheme();
+  const codeBlockStyles = useMemo(() => createCodeBlockStyles(colors), [colors]);
+  const [copied, setCopied] = useState(false);
+
+  const onCopy = () => {
+    void copyToClipboard(content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  return (
+    <View style={codeBlockStyles.container}>
+      <View style={codeBlockStyles.header}>
+        <TouchableOpacity
+          onPress={onCopy}
+          style={codeBlockStyles.copyBtn}
+          accessibilityRole="button"
+          accessibilityLabel={copied ? 'Copied' : 'Copy code'}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={codeBlockStyles.copyBtnText}>{copied ? '✓ Copied' : 'Copy'}</Text>
+        </TouchableOpacity>
+      </View>
+      <Text style={codeBlockStyles.code} selectable>{content}</Text>
+    </View>
+  );
+};
+
+const createCodeBlockStyles = (colors: AppColorsType) => StyleSheet.create({
+  container: {
+    backgroundColor: colors.surfaceCard,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginVertical: 8,
+    overflow: 'hidden',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  copyBtn: { paddingHorizontal: 6, paddingVertical: 2 },
+  copyBtnText: { fontSize: 12, color: colors.accentCyan, fontWeight: '600' },
+  code: {
+    fontFamily: Fonts.mono,
+    fontSize: 12.5,
+    color: colors.textPrimary,
+    padding: 14,
+  },
+});
 
 export interface ChatSource {
   title: string;
@@ -31,55 +100,44 @@ interface ChatMessageBubbleProps {
   onLongPress?: (message: ChatMessage) => void;
 }
 
-const mdStyles = StyleSheet.create({
+const createMdStyles = (colors: AppColorsType) => StyleSheet.create({
   body: {
-    color: AppColors.textPrimary,
+    color: colors.textPrimary,
     fontSize: 15,
     lineHeight: 26,
     fontFamily: Fonts.sans,
   },
-  heading1: { fontFamily: Fonts.satoshiBold, fontSize: 19, fontWeight: '700', color: AppColors.textPrimary, marginBottom: 8, marginTop: 16 },
-  heading2: { fontFamily: Fonts.satoshiBold, fontSize: 16, fontWeight: '600', color: AppColors.textPrimary, marginBottom: 6, marginTop: 12 },
-  heading3: { fontFamily: Fonts.satoshiMedium, fontSize: 15, fontWeight: '600', color: AppColors.textSecondary, marginBottom: 4, marginTop: 8 },
-  strong: { fontFamily: Fonts.satoshiBold, fontWeight: '700', color: AppColors.textPrimary },
-  em: { fontStyle: 'italic', color: AppColors.textSecondary },
+  heading1: { fontFamily: Fonts.satoshiBold, fontSize: 19, fontWeight: '700', color: colors.textPrimary, marginBottom: 8, marginTop: 16 },
+  heading2: { fontFamily: Fonts.satoshiBold, fontSize: 16, fontWeight: '600', color: colors.textPrimary, marginBottom: 6, marginTop: 12 },
+  heading3: { fontFamily: Fonts.satoshiMedium, fontSize: 15, fontWeight: '600', color: colors.textSecondary, marginBottom: 4, marginTop: 8 },
+  strong: { fontFamily: Fonts.satoshiBold, fontWeight: '700', color: colors.textPrimary },
+  em: { fontStyle: 'italic', color: colors.textSecondary },
   code_inline: {
     fontFamily: Fonts.mono,
     fontSize: 13,
-    backgroundColor: AppColors.surfaceCard,
+    backgroundColor: colors.surfaceCard,
     borderRadius: 4,
     paddingHorizontal: 6,
     paddingVertical: 1,
-    color: AppColors.accentCyan,
-  },
-  fence: {
-    fontFamily: Fonts.mono,
-    fontSize: 12.5,
-    backgroundColor: AppColors.surfaceCard,
-    borderRadius: 8,
-    padding: 14,
-    marginVertical: 8,
-    color: AppColors.textPrimary,
-    borderWidth: 1,
-    borderColor: AppColors.border,
+    color: colors.accentCyan,
   },
   blockquote: {
     borderLeftWidth: 2,
-    borderLeftColor: AppColors.border,
+    borderLeftColor: colors.border,
     paddingLeft: 14,
     marginLeft: 0,
-    color: AppColors.textMuted,
+    color: colors.textMuted,
   },
   bullet_list: { marginVertical: 4 },
   ordered_list: { marginVertical: 4 },
   list_item: { marginVertical: 3 },
-  bullet_list_icon: { color: AppColors.textMuted, marginRight: 8, fontSize: 15 },
-  ordered_list_icon: { color: AppColors.textMuted, marginRight: 8, fontSize: 15 },
-  link: { color: AppColors.accentCyan, textDecorationLine: 'underline' },
-  hr: { backgroundColor: AppColors.border, height: 1, marginVertical: 12 },
-  table: { borderWidth: 1, borderColor: AppColors.border, borderRadius: 6, overflow: 'hidden', marginVertical: 8 },
-  th: { backgroundColor: AppColors.surfaceCard, padding: 10, fontWeight: '600', color: AppColors.textPrimary },
-  td: { padding: 10, borderTopWidth: 1, borderTopColor: AppColors.border, color: AppColors.textPrimary },
+  bullet_list_icon: { color: colors.textMuted, marginRight: 8, fontSize: 15 },
+  ordered_list_icon: { color: colors.textMuted, marginRight: 8, fontSize: 15 },
+  link: { color: colors.accentCyan, textDecorationLine: 'underline' },
+  hr: { backgroundColor: colors.border, height: 1, marginVertical: 12 },
+  table: { borderWidth: 1, borderColor: colors.border, borderRadius: 6, overflow: 'hidden', marginVertical: 8 },
+  th: { backgroundColor: colors.surfaceCard, padding: 10, fontWeight: '600', color: colors.textPrimary },
+  td: { padding: 10, borderTopWidth: 1, borderTopColor: colors.border, color: colors.textPrimary },
 });
 
 const TOOL_LABELS: Record<string, string> = {
@@ -103,6 +161,9 @@ function sourceCountLabel(count: number): string {
 export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = memo(({
   message, isStreaming = false, onLongPress,
 }) => {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const mdStyles = useMemo(() => createMdStyles(colors), [colors]);
   const { text, isUser, tokensPerSecond, totalTokens, isError, wasCancelled, toolCalls } = message;
   const visibleToolCalls = toolCalls?.filter(tc => tc.tool !== 'datetime') ?? [];
   const sources = visibleToolCalls
@@ -153,7 +214,16 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = memo(({
 
       <View style={styles.assistantContent}>
         <Markdown
-          style={isError ? { ...mdStyles, body: { ...mdStyles.body, color: AppColors.error } } : mdStyles}
+          style={isError ? { ...mdStyles, body: { ...mdStyles.body, color: colors.error } } : mdStyles}
+          rules={{
+            fence: node => {
+              let { content } = node;
+              if (typeof content === 'string' && content.endsWith('\n')) {
+                content = content.slice(0, -1);
+              }
+              return <CodeBlock key={node.key} content={content} />;
+            },
+          }}
         >
           {text || (isStreaming ? ' ' : '')}
         </Markdown>
@@ -192,7 +262,7 @@ export const ChatMessageBubble: React.FC<ChatMessageBubbleProps> = memo(({
   );
 });
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColorsType) => StyleSheet.create({
   userContainer: {
     alignItems: 'flex-end',
     paddingHorizontal: 16,
@@ -200,19 +270,19 @@ const styles = StyleSheet.create({
   },
   userBubble: {
     maxWidth: '80%',
-    backgroundColor: AppColors.surfaceElevated,
+    backgroundColor: colors.surfaceElevated,
     borderRadius: 18,
     borderTopRightRadius: 4,
     paddingHorizontal: 16,
     paddingVertical: 11,
     borderWidth: 1,
-    borderColor: AppColors.border,
+    borderColor: colors.border,
   },
   userText: {
     fontFamily: Fonts.sans,
     fontSize: 15,
     lineHeight: 23,
-    color: AppColors.textPrimary,
+    color: colors.textPrimary,
   },
   assistantContainer: {
     paddingHorizontal: 16,
@@ -231,22 +301,22 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    backgroundColor: AppColors.surfaceElevated,
+    backgroundColor: colors.surfaceElevated,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: AppColors.border,
+    borderColor: colors.border,
   },
   toolPillFailed: { opacity: 0.45 },
   toolPillIcon: {
     fontSize: 10,
-    color: AppColors.accentCyan,
+    color: colors.accentCyan,
     fontWeight: '700',
     letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
   toolPillText: {
     fontSize: 11.5,
-    color: AppColors.textMuted,
+    color: colors.textMuted,
     fontWeight: '500',
     maxWidth: 220,
   },
@@ -255,12 +325,12 @@ const styles = StyleSheet.create({
     marginTop: 12,
     paddingTop: 10,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: AppColors.border,
+    borderTopColor: colors.border,
     gap: 7,
   },
   sourcesTitle: {
     fontSize: 11,
-    color: AppColors.textMuted,
+    color: colors.textMuted,
     fontWeight: '700',
     letterSpacing: 0.5,
     textTransform: 'uppercase',
@@ -277,32 +347,32 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 18,
     overflow: 'hidden',
-    backgroundColor: AppColors.surfaceElevated,
-    color: AppColors.textMuted,
+    backgroundColor: colors.surfaceElevated,
+    color: colors.textMuted,
     fontSize: 10,
     fontWeight: '700',
   },
   sourceBody: { flex: 1, minWidth: 0 },
   sourceTitle: {
     fontSize: 12.5,
-    color: AppColors.textSecondary,
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   sourceDomain: {
     fontSize: 11,
-    color: AppColors.textMuted,
+    color: colors.textMuted,
     marginTop: 1,
   },
   streamingCursor: {
     width: 2,
     height: 16,
-    backgroundColor: AppColors.accentCyan,
+    backgroundColor: colors.accentCyan,
     borderRadius: 1,
     marginTop: 2,
   },
   cancelledText: {
     fontSize: 12,
-    color: AppColors.textMuted,
+    color: colors.textMuted,
     marginTop: 6,
     fontStyle: 'italic',
   },
@@ -314,6 +384,6 @@ const styles = StyleSheet.create({
   },
   metaText: {
     fontSize: 11,
-    color: AppColors.textMuted,
+    color: colors.textMuted,
   },
 });

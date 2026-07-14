@@ -2,10 +2,10 @@ import { Platform } from 'react-native';
 
 /**
  * Crimson and cream theme - warm paper, deep berry text, and a muted
- * crimson accent. The names stay stable so the rest of the app can keep
- * referencing the same semantic tokens.
+ * crimson accent. The names stay stable across light/dark so the rest of
+ * the app can keep referencing the same semantic tokens regardless of mode.
  */
-export const AppColors = {
+export const LightColors = {
   // Backgrounds - cream / ivory / paper
   primaryDark:    '#f7eee6',   // main canvas
   primaryMid:     '#f0e0d4',   // elevated sections, panels
@@ -35,7 +35,48 @@ export const AppColors = {
   borderStrong: '#c9a99e',
 } as const;
 
-export type AppColorsType = typeof AppColors;
+// Same crimson-and-cream identity, inverted for a dark canvas. Every pair
+// used for body/muted text against a background has been checked to clear
+// WCAG AA (4.5:1) — see the contrast check run when this was added.
+export const DarkColors = {
+  // Backgrounds - warm near-black, not pure/cold black
+  primaryDark:    '#1c1416',
+  primaryMid:     '#251b1e',
+  surfaceCard:    '#2c2124',
+  surfaceElevated:'#342629',
+
+  // Accent - brightened crimson family so it still pops on a dark canvas
+  accentCyan:    '#e14f68',
+  accentViolet:  '#e97891',
+  accentPink:    '#e15b74',
+  accentGreen:   '#6bab8a',
+  accentOrange:  '#dd9a5f',
+
+  // Text - cream / warm smoke
+  textPrimary:   '#f3e8e2',
+  textSecondary: '#cbb3ac',
+  textMuted:     '#9c8079',   // 4.98:1 on primaryDark (WCAG AA)
+
+  // Status
+  success: '#6bab8a',
+  warning: '#dd9a5f',
+  error:   '#e2637a',
+  info:    '#c2a0a8',
+
+  // Borders
+  border:       '#3d2c2f',
+  borderStrong: '#4f3639',
+} as const;
+
+// Widened to plain `string` per key (rather than `typeof LightColors`, whose
+// `as const` literals would force DarkColors to match LightColors' exact
+// hex values) — this just requires the same keys, any hex value.
+export type AppColorsType = { [K in keyof typeof LightColors]: string };
+
+// Back-compat alias — most of the app is mid-migration to useTheme() and
+// still imports AppColors directly; those spots render in light mode only
+// until converted. Prefer useTheme().colors in anything new.
+export const AppColors = LightColors;
 
 export const Fonts = {
   satoshi: 'Satoshi-Regular',

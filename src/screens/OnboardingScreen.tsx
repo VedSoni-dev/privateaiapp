@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppColors, Fonts } from '../theme';
+import { Fonts, useTheme, type AppColorsType } from '../theme';
 import { RootStackParamList } from '../navigation/types';
 
 const { width: W } = Dimensions.get('window');
@@ -33,12 +33,12 @@ async function markOnboardingDone(): Promise<void> {
 
 type Props = { navigation: StackNavigationProp<RootStackParamList, 'Onboarding'> };
 
-const slides = [
+const getSlides = (colors: AppColorsType) => [
   {
     icon: '\uD83D\uDEE1\uFE0F',
     title: 'Private chat.\nNo account.',
     body: 'Private AI gives you a fast ChatGPT-style assistant with encrypted cloud inference and local chat history.',
-    accent: AppColors.accentCyan,
+    accent: colors.accentCyan,
   },
   {
     icon: '\uD83D\uDD12',
@@ -51,17 +51,20 @@ const slides = [
       { icon: '+', text: 'Web search can be turned on or off anytime' },
       { icon: '+', text: 'No analytics or ad tracking' },
     ],
-    accent: AppColors.accentGreen,
+    accent: colors.accentGreen,
   },
   {
     icon: '\uD83E\uDDE0',
     title: 'It remembers\nyou.',
     body: 'Private AI can remember durable details like your projects and preferences. The memory list is stored locally and can be cleared anytime.',
-    accent: AppColors.accentOrange,
+    accent: colors.accentOrange,
   },
 ];
 
 export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
+  const { colors } = useTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
+  const slides = React.useMemo(() => getSlides(colors), [colors]);
   const scrollRef = useRef<ScrollView>(null);
   const [page, setPage] = useState(0);
 
@@ -125,7 +128,7 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
               key={i}
               style={[
                 styles.dot,
-                i === page && { backgroundColor: AppColors.accentCyan, width: 22 },
+                i === page && { backgroundColor: colors.accentCyan, width: 22 },
               ]}
             />
           ))}
@@ -136,7 +139,7 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
           activeOpacity={0.85}
           accessibilityRole="button"
           accessibilityLabel={page < slides.length - 1 ? 'Next' : 'Get started'}
-          style={[styles.cta, { backgroundColor: AppColors.accentCyan }]}
+          style={[styles.cta, { backgroundColor: colors.accentCyan }]}
         >
           <Text style={styles.ctaText}>
             {page < slides.length - 1 ? 'Next →' : 'Get started →'}
@@ -161,10 +164,10 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
   );
 };
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColorsType) => StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: AppColors.primaryDark,
+    backgroundColor: colors.primaryDark,
   },
   slide: {
     width: W,
@@ -189,14 +192,14 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.satoshi,
     fontSize: 38,
     lineHeight: 46,
-    color: AppColors.textPrimary,
+    color: colors.textPrimary,
     marginBottom: 18,
     letterSpacing: 0.1,
   },
   body: {
     fontSize: 17,
     lineHeight: 26,
-    color: AppColors.textSecondary,
+    color: colors.textSecondary,
   },
   featureList: {
     gap: 14,
@@ -220,7 +223,7 @@ const styles = StyleSheet.create({
   },
   featureText: {
     fontSize: 16,
-    color: AppColors.textPrimary,
+    color: colors.textPrimary,
     flex: 1,
     lineHeight: 22,
   },
@@ -239,14 +242,14 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: AppColors.borderStrong,
+    backgroundColor: colors.borderStrong,
   },
   cta: {
     width: '100%',
     paddingVertical: 17,
     borderRadius: 16,
     alignItems: 'center',
-    shadowColor: AppColors.accentCyan,
+    shadowColor: colors.accentCyan,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.28,
     shadowRadius: 12,
@@ -263,6 +266,6 @@ const styles = StyleSheet.create({
   },
   skipText: {
     fontSize: 14,
-    color: AppColors.textMuted,
+    color: colors.textMuted,
   },
 });

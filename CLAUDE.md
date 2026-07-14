@@ -36,6 +36,7 @@ iPhone app (Expo, src/)
 | `src/services/UsageService.ts` | Local usage cache + server sync. Server is source of truth |
 | `src/services/WebSearchService.ts` | Search client + heuristics for when to search; sends `x-search-token` |
 | `src/services/DeviceId.ts` | Random per-install ID; spoofable, quota is advisory until App Attest |
+| `src/theme/ThemeContext.tsx` | `useTheme()` — light/dark colors + mode + setMode, persisted to AsyncStorage. Use this, not `AppColors`, in anything new |
 | `src/services/LiveActivityService.ts` | Dynamic Island / lock-screen progress for in-flight answers |
 | `src/services/BackgroundExecutionService.ts` | Extends iOS's background-execution grace so streams survive backgrounding |
 | `src/services/NotificationService.ts` | Local-only notifications (quota-reset reminder; generic scheduler for future nudges) |
@@ -105,7 +106,10 @@ app from anywhere, e.g. selected Messages text), local notifications
 (quota-reset reminder), calendar event creation from any message, memory
 categorization + a real Memory screen + conservative proactive nudges,
 real unit tests for the server's usage/entitlement/validation logic
-(`server/logic.js` + `server/logic.test.js`, run via `npm test`).
+(`server/logic.js` + `server/logic.test.js`, run via `npm test`), full
+light/dark theme system with a manual toggle (Settings panel), copy button
+on markdown code blocks, chat session rename/delete (long-press in sidebar,
+`ChatStorage.renameSession`/`deleteSession`).
 
 Open, in priority order:
 1. **Real IAP — code is wired, config is not**: `PurchaseService.ts` wraps
@@ -134,6 +138,20 @@ Open, in priority order:
   names survived the palette change; don't "fix" them mechanically.
 - `textMuted` was darkened for WCAG AA (4.5:1) — check contrast before
   lightening any text color on the cream background.
+- **Theming**: use `useTheme()` from `src/theme` (never import `AppColors`
+  directly in anything new — it's the static light-only export kept only for
+  back-compat). Every `StyleSheet.create` must be a `createStyles(colors: AppColorsType) =>
+  StyleSheet.create({...})` factory called via `useMemo(() => createStyles(colors), [colors])`
+  inside the component — `StyleSheet.create` at module scope evaluates once
+  and won't react to theme changes. `LiveActivityService.ts` (native
+  ActivityKit config) and `ShareExtension.tsx` (separate JS bundle/process,
+  no shared React context with the main app) are deliberately NOT
+  theme-reactive — left on the light palette. Dark mode is a manual
+  light/dark toggle only (Settings panel), not "follow system" — `app.json`'s
+  `userInterfaceStyle: "light"` locks `useColorScheme()` to always report
+  light regardless of the phone's actual setting; enabling real system-follow
+  needs that changed to `"automatic"`, which is a native config change
+  (needs a new build) not yet done.
 - Old TestFlight builds still call `/v1/usage/record` and don't send
   `x-search-token`; keep both compatible until those builds are gone.
 - `expo-share-extension`'s `openHostApp(path)` opens the app's own configured

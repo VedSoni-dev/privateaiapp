@@ -9,7 +9,7 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { AppColors, Fonts } from '../theme';
+import { Fonts, useTheme, type AppColorsType } from '../theme';
 import * as Memory from '../services/MemoryService';
 
 interface Props {
@@ -18,6 +18,8 @@ interface Props {
 }
 
 export const MemoryModal: React.FC<Props> = ({ visible, onClose }) => {
+  const { colors } = useTheme();
+  const styles = React.useMemo(() => createStyles(colors), [colors]);
   // tick only exists to force a re-render after a mutation below —
   // getFactsByCategory() itself is a cheap synchronous read, no memoization needed.
   const [, setTick] = React.useState(0);
@@ -107,8 +109,8 @@ export const MemoryModal: React.FC<Props> = ({ visible, onClose }) => {
   );
 };
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: AppColors.primaryDark },
+const createStyles = (colors: AppColorsType) => StyleSheet.create({
+  safe: { flex: 1, backgroundColor: colors.primaryDark },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -117,22 +119,22 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 16,
   },
-  title: { fontFamily: Fonts.satoshiBold, fontSize: 22, color: AppColors.textPrimary },
-  subtitle: { fontSize: 13, color: AppColors.textMuted, marginTop: 3 },
+  title: { fontFamily: Fonts.satoshiBold, fontSize: 22, color: colors.textPrimary },
+  subtitle: { fontSize: 13, color: colors.textMuted, marginTop: 3 },
   closeBtn: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: AppColors.surfaceCard,
+    backgroundColor: colors.surfaceCard,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: AppColors.border,
+    borderColor: colors.border,
   },
-  closeTxt: { fontSize: 14, color: AppColors.textSecondary, fontWeight: '600' },
+  closeTxt: { fontSize: 14, color: colors.textSecondary, fontWeight: '600' },
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
   emptyIcon: { fontSize: 44, marginBottom: 16 },
-  emptyText: { fontSize: 15, lineHeight: 22, color: AppColors.textSecondary, textAlign: 'center' },
+  emptyText: { fontSize: 15, lineHeight: 22, color: colors.textSecondary, textAlign: 'center' },
   scroll: { paddingHorizontal: 20, paddingBottom: 40 },
   section: { marginBottom: 22 },
   sectionTitle: {
@@ -140,17 +142,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
-    color: AppColors.textMuted,
+    color: colors.textMuted,
     marginBottom: 8,
   },
   factRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,
-    backgroundColor: AppColors.surfaceCard,
+    backgroundColor: colors.surfaceCard,
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: AppColors.border,
+    borderColor: colors.border,
     paddingVertical: 11,
     paddingHorizontal: 12,
     marginBottom: 7,
@@ -161,14 +163,14 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 3.5,
-    backgroundColor: AppColors.accentCyan,
+    backgroundColor: colors.accentCyan,
     marginTop: 6,
   },
-  strengthDotFading: { backgroundColor: AppColors.border },
-  factText: { flex: 1, fontSize: 14.5, lineHeight: 21, color: AppColors.textPrimary },
-  factTextFading: { color: AppColors.textMuted },
+  strengthDotFading: { backgroundColor: colors.border },
+  factText: { flex: 1, fontSize: 14.5, lineHeight: 21, color: colors.textPrimary },
+  factTextFading: { color: colors.textMuted },
   forgetBtn: { paddingHorizontal: 2 },
-  forgetTxt: { fontSize: 13, color: AppColors.textMuted },
+  forgetTxt: { fontSize: 13, color: colors.textMuted },
   forgetAllBtn: { alignSelf: 'center', paddingVertical: 14, marginTop: 8 },
-  forgetAllTxt: { fontSize: 14, color: AppColors.error, fontWeight: '600' },
+  forgetAllTxt: { fontSize: 14, color: colors.error, fontWeight: '600' },
 });

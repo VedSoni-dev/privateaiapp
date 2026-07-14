@@ -25,7 +25,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { AppColors, Fonts } from '../theme';
+import { Fonts, useTheme, type AppColorsType } from '../theme';
 import { ChatMessageBubble, ChatMessage, ThinkingIndicator, PaywallModal, MemoryModal } from '../components';
 import { RootStackParamList } from '../navigation/types';
 import { prepareTurn, learnInBackground, streamTurn, type LearnedFact } from '../services/AgentService';
@@ -73,6 +73,8 @@ function friendlyErrorText(error: unknown): string {
 }
 
 export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => {
+  const { colors, mode, setMode } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
@@ -417,6 +419,54 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
     closeMenu();
   };
 
+  const refreshSessionList = () => {
+    ChatStorage.loadSessions().then(s => setSessions(s)).catch(() => {});
+  };
+
+  const handleDeleteSession = (session: ChatSession) => {
+    Alert.alert('Delete chat?', `"${session.title}" will be permanently deleted.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          void ChatStorage.deleteSession(session.id).then(() => {
+            refreshSessionList();
+            // Deleting the open chat drops back to a fresh one rather than
+            // leaving the screen showing a session that no longer exists.
+            if (session.id === currentSessionRef.current.id) handleNewChat();
+          });
+        },
+      },
+    ]);
+  };
+
+  const handleRenameSession = (session: ChatSession) => {
+    Alert.prompt(
+      'Rename chat',
+      undefined,
+      text => {
+        if (!text?.trim()) return;
+        void ChatStorage.renameSession(session.id, text).then(() => {
+          refreshSessionList();
+          if (session.id === currentSessionRef.current.id) {
+            currentSessionRef.current.title = text.trim().slice(0, 80);
+          }
+        });
+      },
+      'plain-text',
+      session.title,
+    );
+  };
+
+  const handleSessionLongPress = (session: ChatSession) => {
+    Alert.alert(session.title, undefined, [
+      { text: 'Rename', onPress: () => handleRenameSession(session) },
+      { text: 'Delete', style: 'destructive', onPress: () => handleDeleteSession(session) },
+      { text: 'Cancel', style: 'cancel' },
+    ]);
+  };
+
   const filteredSessions = useMemo(() => {
     const query = sessionSearch.trim().toLowerCase();
     if (!query) return sessions;
@@ -661,7 +711,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
             <TextInput
               style={styles.input}
               placeholder="Message Private AI..."
-              placeholderTextColor={AppColors.textMuted}
+              placeholderTextColor={colors.textMuted}
               value={inputText}
               onChangeText={setInputText}
               onSubmitEditing={() => handleSend()}
@@ -688,7 +738,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <LinearGradient
-                  colors={[AppColors.accentCyan, AppColors.accentViolet]}
+                  colors={[colors.accentCyan, colors.accentViolet]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
                   style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
@@ -795,9 +845,9 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
                 <Switch
                   value={webEnabled}
                   onValueChange={setWebEnabled}
-                  trackColor={{ false: AppColors.borderStrong, true: AppColors.accentCyan }}
+                  trackColor={{ false: colors.borderStrong, true: colors.accentCyan }}
                   thumbColor="#FFFFFF"
-                  ios_backgroundColor={AppColors.borderStrong}
+                  ios_backgroundColor={colors.borderStrong}
                 />
               </View>
             </View>
@@ -809,7 +859,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
                   value={sessionSearch}
                   onChangeText={setSessionSearch}
                   placeholder="Title or preview"
-                  placeholderTextColor={AppColors.textMuted}
+                  placeholderTextColor={colors.textMuted}
                   style={styles.searchInput}
                 />
                 {sessionSearch ? (
@@ -839,16 +889,19 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
               <Text style={[styles.panelRowText, { fontWeight: '600' }]}>New chat</Text>
             </TouchableOpacity>
 
-            {filteredSessions.slice(0, 7).map(s => (
+            {filteredSessions.map(s => (
               <TouchableOpacity
                 key={s.id}
                 accessibilityRole="button"
                 accessibilityLabel={`Open chat: ${s.title}`}
+                accessibilityHint="Long press to rename or delete"
                 style={[
                   styles.panelRow,
                   s.id === currentSessionRef.current.id && styles.panelRowActive,
                 ]}
                 onPress={() => { void handleSwitchSession(s.id); }}
+                onLongPress={() => handleSessionLongPress(s)}
+                delayLongPress={350}
               >
                 <Text style={styles.panelRowIcon}>💬</Text>
                 <View style={{ flex: 1 }}>
@@ -881,6 +934,19 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
               <Text style={styles.panelRowText}>What AI remembers</Text>
             </TouchableOpacity>
 
+            <View style={styles.panelRow}>
+              <Text style={styles.panelRowIcon}>{mode === 'dark' ? '🌙' : '☀️'}</Text>
+              <Text style={styles.panelRowText}>Dark mode</Text>
+              <Switch
+                value={mode === 'dark'}
+                onValueChange={isDark => setMode(isDark ? 'dark' : 'light')}
+                trackColor={{ false: colors.borderStrong, true: colors.accentCyan }}
+                thumbColor="#FFFFFF"
+                ios_backgroundColor={colors.borderStrong}
+                accessibilityLabel="Toggle dark mode"
+              />
+            </View>
+
             {!usage.isPro && (
               <TouchableOpacity
                 style={[styles.panelRow, styles.upgradeRow]}
@@ -890,14 +956,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
               >
                 <Text style={styles.panelRowIcon}>✦</Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.panelRowText, { fontWeight: '700', color: AppColors.accentCyan }]}>
+                  <Text style={[styles.panelRowText, { fontWeight: '700', color: colors.accentCyan }]}>
                     Upgrade to Pro
                   </Text>
                   <Text style={styles.panelRowSub}>
                     Unlimited messages, no daily cap
                   </Text>
                 </View>
-                <Text style={[styles.panelChevron, { color: AppColors.accentCyan }]}>›</Text>
+                <Text style={[styles.panelChevron, { color: colors.accentCyan }]}>›</Text>
               </TouchableOpacity>
             )}
 
@@ -915,35 +981,35 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
   );
 };
 
-const styles = StyleSheet.create({
-  safeArea:  { flex: 1, backgroundColor: AppColors.primaryDark },
+const createStyles = (colors: AppColorsType) => StyleSheet.create({
+  safeArea:  { flex: 1, backgroundColor: colors.primaryDark },
   flex1:     { flex: 1 },
-  container: { flex: 1, backgroundColor: AppColors.primaryDark },
+  container: { flex: 1, backgroundColor: colors.primaryDark },
 
   // ── Header ───────────────────────────────────────────────────────
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: AppColors.border,
-    backgroundColor: AppColors.primaryDark,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
+    backgroundColor: colors.primaryDark,
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   logoImage:  { width: 32, height: 32, borderRadius: 8 },
   headerTitle: {
     fontFamily: Fonts.satoshi, fontSize: 17,
-    color: AppColors.textPrimary, letterSpacing: 0.1,
+    color: colors.textPrimary, letterSpacing: 0.1,
   },
   headerBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
-  onlineDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: AppColors.accentGreen },
-  headerSubtitle: { fontSize: 11, color: AppColors.textMuted, letterSpacing: 0.1 },
+  onlineDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.accentGreen },
+  headerSubtitle: { fontSize: 11, color: colors.textMuted, letterSpacing: 0.1 },
   menuButton: {
     width: 34, height: 34, borderRadius: 8,
-    backgroundColor: AppColors.surfaceCard,
+    backgroundColor: colors.surfaceCard,
     justifyContent: 'center', alignItems: 'center',
-    borderWidth: 1, borderColor: AppColors.border,
+    borderWidth: 1, borderColor: colors.border,
   },
   menuGlyph: { alignItems: 'flex-end', gap: 3 },
-  menuLine:  { height: 1.5, borderRadius: 1, backgroundColor: AppColors.textSecondary },
+  menuLine:  { height: 1.5, borderRadius: 1, backgroundColor: colors.textSecondary },
 
   // ── Message list ─────────────────────────────────────────────────
   messageList: { paddingTop: 16, paddingBottom: 8 },
@@ -956,39 +1022,39 @@ const styles = StyleSheet.create({
   emptyMarkImage: { width: 48, height: 48, borderRadius: 12, marginBottom: 20 },
   emptyTitle: {
     fontFamily: Fonts.satoshi, fontSize: 32, lineHeight: 40,
-    color: AppColors.textPrimary, marginBottom: 24, letterSpacing: 0.1,
+    color: colors.textPrimary, marginBottom: 24, letterSpacing: 0.1,
   },
   suggestionsContainer: { width: '100%', gap: 8 },
   suggestionChip: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 14, paddingVertical: 13,
-    backgroundColor: AppColors.surfaceCard,
-    borderRadius: 10, borderWidth: 1, borderColor: AppColors.border,
+    backgroundColor: colors.surfaceCard,
+    borderRadius: 10, borderWidth: 1, borderColor: colors.border,
   },
   suggestionIcon:  { fontSize: 15, marginRight: 11 },
-  suggestionText:  { fontSize: 14, color: AppColors.textSecondary, flex: 1, lineHeight: 20 },
-  suggestionArrow: { fontSize: 13, color: AppColors.textMuted, marginLeft: 8 },
+  suggestionText:  { fontSize: 14, color: colors.textSecondary, flex: 1, lineHeight: 20 },
+  suggestionArrow: { fontSize: 13, color: colors.textMuted, marginLeft: 8 },
 
   // ── Input area ───────────────────────────────────────────────────
   inputContainer: {
     paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10,
-    backgroundColor: AppColors.primaryDark,
-    borderTopWidth: 1, borderTopColor: AppColors.border,
+    backgroundColor: colors.primaryDark,
+    borderTopWidth: 1, borderTopColor: colors.border,
   },
   statusRow: {
     paddingHorizontal: 4, paddingBottom: 8,
     flexDirection: 'row', alignItems: 'center', gap: 6,
   },
-  statusDot:  { width: 5, height: 5, borderRadius: 3, backgroundColor: AppColors.accentCyan },
-  statusText: { fontSize: 12, color: AppColors.accentCyan, fontWeight: '500' },
+  statusDot:  { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.accentCyan },
+  statusText: { fontSize: 12, color: colors.accentCyan, fontWeight: '500' },
 
   // Compound input row — wraps input + action buttons
   modeRow: {
     alignSelf: 'flex-start',
     flexDirection: 'row',
-    backgroundColor: AppColors.surfaceElevated,
+    backgroundColor: colors.surfaceElevated,
     borderWidth: 1,
-    borderColor: AppColors.border,
+    borderColor: colors.border,
     borderRadius: 10,
     padding: 3,
     marginBottom: 8,
@@ -1000,20 +1066,20 @@ const styles = StyleSheet.create({
     borderRadius: 7,
   },
   modeButtonActive: {
-    backgroundColor: AppColors.surfaceCard,
+    backgroundColor: colors.surfaceCard,
   },
   modeText: {
-    color: AppColors.textMuted,
+    color: colors.textMuted,
     fontSize: 12,
     fontWeight: '700',
   },
   modeTextActive: {
-    color: AppColors.textPrimary,
+    color: colors.textPrimary,
   },
   inputWrapper: {
     flexDirection: 'row', alignItems: 'flex-end',
-    backgroundColor: AppColors.surfaceCard,
-    borderRadius: 14, borderWidth: 1, borderColor: AppColors.border,
+    backgroundColor: colors.surfaceCard,
+    borderRadius: 14, borderWidth: 1, borderColor: colors.border,
     paddingHorizontal: 4, paddingVertical: 4, gap: 2,
   },
   input: {
@@ -1021,31 +1087,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingTop: Platform.OS === 'ios' ? 9 : 7,
     paddingBottom: Platform.OS === 'ios' ? 9 : 7,
-    fontSize: 15.5, color: AppColors.textPrimary,
+    fontSize: 15.5, color: colors.textPrimary,
     maxHeight: 130, minHeight: 36,
   },
   sendButton: {
     width: 36, height: 36, borderRadius: 8,
-    backgroundColor: AppColors.accentCyan,
+    backgroundColor: colors.accentCyan,
     justifyContent: 'center', alignItems: 'center',
   },
   sendButtonDisabled: { opacity: 0.3 },
   sendIcon: { fontSize: 17, fontWeight: '700', color: '#fff' },
   stopButton: {
     width: 36, height: 36, borderRadius: 8,
-    backgroundColor: AppColors.surfaceCard,
-    borderWidth: 1, borderColor: AppColors.border,
+    backgroundColor: colors.surfaceCard,
+    borderWidth: 1, borderColor: colors.border,
     justifyContent: 'center', alignItems: 'center',
   },
-  stopIconText: { fontSize: 14, color: AppColors.textSecondary },
+  stopIconText: { fontSize: 14, color: colors.textSecondary },
 
   disclaimerRow: {
     flexDirection: 'row', justifyContent: 'center',
     alignItems: 'center', gap: 8, marginTop: 7,
   },
-  disclaimer:   { fontSize: 11, color: AppColors.textMuted },
-  upgradeLink:  { fontSize: 11, color: AppColors.accentCyan, fontWeight: '600' },
-  aiNotice:     { fontSize: 10.5, color: AppColors.textMuted, textAlign: 'center', marginTop: 3 },
+  disclaimer:   { fontSize: 11, color: colors.textMuted },
+  upgradeLink:  { fontSize: 11, color: colors.accentCyan, fontWeight: '600' },
+  aiNotice:     { fontSize: 10.5, color: colors.textMuted, textAlign: 'center', marginTop: 3 },
 
   // ── Memory moment chip ───────────────────────────────────────────
   memoryMomentRow: {
@@ -1054,41 +1120,41 @@ const styles = StyleSheet.create({
     gap: 10,
     alignSelf: 'center',
     maxWidth: '96%',
-    backgroundColor: AppColors.surfaceCard,
-    borderColor: AppColors.border,
+    backgroundColor: colors.surfaceCard,
+    borderColor: colors.border,
     borderWidth: StyleSheet.hairlineWidth,
     borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 7,
     marginBottom: 8,
-    shadowColor: AppColors.textPrimary,
+    shadowColor: colors.textPrimary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
     elevation: 2,
   },
-  memoryMomentText: { flexShrink: 1, fontSize: 12.5, color: AppColors.textSecondary },
-  memoryMomentUndo: { fontSize: 12.5, color: AppColors.accentCyan, fontWeight: '700' },
-  memoryMomentDismiss: { fontSize: 12, color: AppColors.textMuted, fontWeight: '600' },
+  memoryMomentText: { flexShrink: 1, fontSize: 12.5, color: colors.textSecondary },
+  memoryMomentUndo: { fontSize: 12.5, color: colors.accentCyan, fontWeight: '700' },
+  memoryMomentDismiss: { fontSize: 12, color: colors.textMuted, fontWeight: '600' },
 
   // ── Backdrop + panel ─────────────────────────────────────────────
   backdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)' },
   panel: {
     position: 'absolute', top: 0, bottom: 0, right: 0,
     width: PANEL_WIDTH,
-    backgroundColor: AppColors.primaryMid,
-    borderLeftWidth: 1, borderLeftColor: AppColors.border,
+    backgroundColor: colors.primaryMid,
+    borderLeftWidth: 1, borderLeftColor: colors.border,
     shadowColor: '#000', shadowOffset: { width: -8, height: 0 },
     shadowOpacity: 0.4, shadowRadius: 24, elevation: 20,
   },
   panelContent:  { paddingHorizontal: 16, paddingBottom: 36 },
   panelHeader:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 10, paddingBottom: 16 },
-  panelTitle:    { fontFamily: Fonts.satoshi, fontSize: 22, color: AppColors.textPrimary },
-  panelClose:    { width: 30, height: 30, borderRadius: 6, backgroundColor: AppColors.surfaceCard, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: AppColors.border },
-  panelCloseText: { fontSize: 13, color: AppColors.textSecondary, fontWeight: '600' },
+  panelTitle:    { fontFamily: Fonts.satoshi, fontSize: 22, color: colors.textPrimary },
+  panelClose:    { width: 30, height: 30, borderRadius: 6, backgroundColor: colors.surfaceCard, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border },
+  panelCloseText: { fontSize: 13, color: colors.textSecondary, fontWeight: '600' },
   panelCard: {
-    backgroundColor: AppColors.surfaceCard, borderRadius: 12,
-    borderWidth: 1, borderColor: AppColors.border,
+    backgroundColor: colors.surfaceCard, borderRadius: 12,
+    borderWidth: 1, borderColor: colors.border,
     padding: 14, marginBottom: 8,
   },
   searchRow: {
@@ -1102,11 +1168,11 @@ const styles = StyleSheet.create({
     minHeight: 40,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: AppColors.border,
-    backgroundColor: AppColors.primaryDark,
+    borderColor: colors.border,
+    backgroundColor: colors.primaryDark,
     paddingHorizontal: 12,
     paddingVertical: 9,
-    color: AppColors.textPrimary,
+    color: colors.textPrimary,
     fontSize: 14,
   },
   searchClear: {
@@ -1114,56 +1180,56 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: AppColors.border,
-    backgroundColor: AppColors.primaryDark,
+    borderColor: colors.border,
+    backgroundColor: colors.primaryDark,
     alignItems: 'center',
     justifyContent: 'center',
   },
   searchClearText: {
-    color: AppColors.textSecondary,
+    color: colors.textSecondary,
     fontSize: 12,
     fontWeight: '700',
   },
   switchRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   switchTextWrap: { flex: 1 },
-  switchLabel:   { fontSize: 15, fontWeight: '600', color: AppColors.textPrimary, marginBottom: 2 },
-  switchSub:     { fontSize: 12, color: AppColors.textMuted, lineHeight: 16 },
-  panelSection:  { fontSize: 11, fontWeight: '700', color: AppColors.textMuted, letterSpacing: 1, marginTop: 20, marginBottom: 6, marginLeft: 2 },
+  switchLabel:   { fontSize: 15, fontWeight: '600', color: colors.textPrimary, marginBottom: 2 },
+  switchSub:     { fontSize: 12, color: colors.textMuted, lineHeight: 16 },
+  panelSection:  { fontSize: 11, fontWeight: '700', color: colors.textMuted, letterSpacing: 1, marginTop: 20, marginBottom: 6, marginLeft: 2 },
   panelRow: {
     flexDirection: 'row', alignItems: 'center',
     paddingVertical: 12, paddingHorizontal: 12,
-    backgroundColor: AppColors.surfaceCard,
-    borderRadius: 10, borderWidth: 1, borderColor: AppColors.border, marginBottom: 6,
+    backgroundColor: colors.surfaceCard,
+    borderRadius: 10, borderWidth: 1, borderColor: colors.border, marginBottom: 6,
   },
-  panelRowAccent: { borderColor: AppColors.accentCyan + '33', backgroundColor: AppColors.accentCyan + '08' },
-  panelRowActive: { borderColor: AppColors.accentCyan + '66', backgroundColor: AppColors.accentCyan + '12' },
-  panelRowSub:    { fontSize: 11, color: AppColors.textMuted, marginTop: 1 },
+  panelRowAccent: { borderColor: colors.accentCyan + '33', backgroundColor: colors.accentCyan + '08' },
+  panelRowActive: { borderColor: colors.accentCyan + '66', backgroundColor: colors.accentCyan + '12' },
+  panelRowSub:    { fontSize: 11, color: colors.textMuted, marginTop: 1 },
   panelRowIcon:   { fontSize: 15, width: 24 },
-  panelRowText:   { flex: 1, fontSize: 14.5, color: AppColors.textPrimary },
-  panelChevron:   { fontSize: 18, color: AppColors.textMuted, marginLeft: 6 },
+  panelRowText:   { flex: 1, fontSize: 14.5, color: colors.textPrimary },
+  panelChevron:   { fontSize: 18, color: colors.textMuted, marginLeft: 6 },
   panelEmptyRow: {
     paddingVertical: 14,
     paddingHorizontal: 12,
   },
   panelEmptyText: {
     fontSize: 12,
-    color: AppColors.textMuted,
+    color: colors.textMuted,
     lineHeight: 18,
   },
-  upgradeRow:     { borderColor: AppColors.accentCyan + '44', backgroundColor: AppColors.accentCyan + '0A', marginBottom: 6 },
+  upgradeRow:     { borderColor: colors.accentCyan + '44', backgroundColor: colors.accentCyan + '0A', marginBottom: 6 },
 
   apiBadge:      { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
-  apiBadgeOn:    { backgroundColor: AppColors.accentGreen + '22' },
-  apiBadgeOff:   { backgroundColor: AppColors.accentOrange + '22' },
-  apiBadgeText:  { fontSize: 9, fontWeight: '800', color: AppColors.textMuted, letterSpacing: 0.6 },
+  apiBadgeOn:    { backgroundColor: colors.accentGreen + '22' },
+  apiBadgeOff:   { backgroundColor: colors.accentOrange + '22' },
+  apiBadgeText:  { fontSize: 9, fontWeight: '800', color: colors.textMuted, letterSpacing: 0.6 },
   apiInputRow:   { flexDirection: 'row', gap: 8, marginTop: 10 },
   apiInput: {
-    flex: 1, backgroundColor: AppColors.primaryDark, borderRadius: 8,
+    flex: 1, backgroundColor: colors.primaryDark, borderRadius: 8,
     paddingHorizontal: 11, paddingVertical: 8, fontSize: 13,
-    color: AppColors.textPrimary, borderWidth: 1, borderColor: AppColors.border,
+    color: colors.textPrimary, borderWidth: 1, borderColor: colors.border,
   },
-  apiSaveBtn:     { backgroundColor: AppColors.accentCyan, borderRadius: 8, paddingHorizontal: 14, justifyContent: 'center' },
+  apiSaveBtn:     { backgroundColor: colors.accentCyan, borderRadius: 8, paddingHorizontal: 14, justifyContent: 'center' },
   apiSaveBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
-  panelFooter:    { marginTop: 20, padding: 12, backgroundColor: AppColors.surfaceCard, borderRadius: 10, borderWidth: 1, borderColor: AppColors.border },
-  panelFooterText: { fontSize: 11.5, color: AppColors.textMuted, textAlign: 'center', lineHeight: 17 },
+  panelFooter:    { marginTop: 20, padding: 12, backgroundColor: colors.surfaceCard, borderRadius: 10, borderWidth: 1, borderColor: colors.border },
+  panelFooterText: { fontSize: 11.5, color: colors.textMuted, textAlign: 'center', lineHeight: 17 },
 });

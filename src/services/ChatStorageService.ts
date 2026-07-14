@@ -113,6 +113,26 @@ export async function deleteSession(id: string): Promise<void> {
 }
 
 /**
+ * Rename a session's title (in both the index and its full record).
+ */
+export async function renameSession(id: string, title: string): Promise<void> {
+  const trimmed = title.trim().slice(0, 80);
+  if (!trimmed) return;
+
+  const index = await readIndex();
+  const idx = index.findIndex(s => s.id === id);
+  if (idx >= 0) {
+    index[idx] = { ...index[idx], title: trimmed };
+    await writeIndex(index);
+  }
+
+  const full = await loadSession(id);
+  if (full) {
+    await AsyncStorage.setItem(sessionKey(id), JSON.stringify({ ...full, title: trimmed }));
+  }
+}
+
+/**
  * Create a new blank session object (not yet persisted).
  */
 export function createSession(): ChatSessionFull {
