@@ -26,6 +26,7 @@
     "expo-live-activity": "^0.4.2",
     "expo-notifications": "~0.32.17",
     "expo-share-extension": "^5.0.6",
+    "expo-sharing": "~14.0.8",
     "expo-status-bar": "~3.0.9",
     "react": "19.1.0",
     "react-native": "0.81.5",
@@ -34,7 +35,8 @@
     "react-native-markdown-display": "^7.0.2",
     "react-native-purchases": "^10.4.2",
     "react-native-safe-area-context": "~5.6.0",
-    "react-native-screens": "~4.16.0"
+    "react-native-screens": "~4.16.0",
+    "react-native-view-shot": "4.0.3"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

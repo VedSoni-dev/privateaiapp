@@ -26,7 +26,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Fonts, useTheme, type AppColorsType } from '../theme';
-import { ChatMessageBubble, ChatMessage, ThinkingIndicator, PaywallModal, MemoryModal } from '../components';
+import { ChatMessageBubble, ChatMessage, ThinkingIndicator, PaywallModal, MemoryModal, ShareCardModal, type ShareCardTarget } from '../components';
 import { RootStackParamList } from '../navigation/types';
 import { prepareTurn, learnInBackground, streamTurn, type LearnedFact } from '../services/AgentService';
 import { getPersonalizedSuggestions, type SuggestionChip } from '../services/SuggestionService';
@@ -87,6 +87,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
 
   const [showPaywall, setShowPaywall] = useState(false);
   const [showMemoryModal, setShowMemoryModal] = useState(false);
+  const [shareCardTarget, setShareCardTarget] = useState<ShareCardTarget | null>(null);
   const [remindMeScheduled, setRemindMeScheduled] = useState(false);
   const [usage, setUsage] = useState(getUsage());
   // "Memory moment" — the transparency chip shown when the AI learns a fact.
@@ -520,6 +521,16 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
     void handleSend(userText, trimmed);
   }
 
+  // Branded share-card image: the answer plus the question that prompted it,
+  // rendered as a Private AI-styled card for the iOS share sheet.
+  function handleShareAsImage(index: number): void {
+    const message = messages[index];
+    if (!message || message.isUser || !message.text) return;
+    const userIndex = findPreviousUserMessageIndex(index);
+    const question = userIndex >= 0 ? messages[userIndex]?.text ?? '' : '';
+    setShareCardTarget({ question, answer: message.text });
+  }
+
   function handleLongPressMessage(message: ChatMessage, index: number): void {
     if (!message.text) return;
     const buttons = message.isUser
@@ -534,7 +545,8 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
       : [
           { text: 'Regenerate', onPress: () => void handleRegenerateMessage(index) },
           { text: 'Copy', onPress: () => void copyMessageText(message.text) },
-          { text: 'Share', onPress: () => { Share.share({ message: message.text }).catch(() => {}); } },
+          { text: 'Share as Image', onPress: () => handleShareAsImage(index) },
+          { text: 'Share Text', onPress: () => { Share.share({ message: message.text }).catch(() => {}); } },
           { text: 'Add to Calendar', onPress: () => void addToCalendar(message.text) },
           { text: 'Cancel', style: 'cancel' as const },
         ];
@@ -569,7 +581,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle={mode === 'dark' ? 'light-content' : 'dark-content'} />
       <PanGestureHandler activeOffsetX={[-20, 20]} onHandlerStateChange={onEdgePan}>
         <View style={styles.flex1}>
       <View style={styles.header}>
@@ -780,6 +792,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
       </Animated.View>
 
       <MemoryModal visible={showMemoryModal} onClose={() => setShowMemoryModal(false)} />
+
+      <ShareCardModal
+        visible={shareCardTarget !== null}
+        target={shareCardTarget}
+        onClose={() => setShareCardTarget(null)}
+      />
 
       <PaywallModal
         visible={showPaywall}

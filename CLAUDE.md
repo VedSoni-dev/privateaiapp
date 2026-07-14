@@ -109,7 +109,10 @@ real unit tests for the server's usage/entitlement/validation logic
 (`server/logic.js` + `server/logic.test.js`, run via `npm test`), full
 light/dark theme system with a manual toggle (Settings panel), copy button
 on markdown code blocks, chat session rename/delete (long-press in sidebar,
-`ChatStorage.renameSession`/`deleteSession`).
+`ChatStorage.renameSession`/`deleteSession`), branded share-card images
+(long-press an answer → "Share as Image" → `ShareCardModal.tsx` renders a
+fixed-brand card, `react-native-view-shot` captures it, `expo-sharing` opens
+the share sheet — both bundled in Expo Go; falls back to plain-text share).
 
 Open, in priority order:
 1. **Real IAP — code is wired, config is not**: `PurchaseService.ts` wraps
