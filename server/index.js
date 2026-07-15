@@ -1,7 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import { spawn } from 'node:child_process';
-import { toDateKey, usageSummary, clampNumber, validateMessages, memoryRecord, memoryGet } from './logic.js';
+import { timingSafeEqual } from 'node:crypto';
+import { toDateKey, usageSummary, clampNumber, validateMessages, memoryRecord, memoryGet, rcEntitlementUpdates } from './logic.js';
 
 const PORT = process.env.PORT || 3000;
 const PROXY_PORT = Number(process.env.PRIVATEMODE_PROXY_PORT || 8080);
@@ -25,6 +26,9 @@ const MAX_DAILY_CALLS = Number(process.env.MAX_DAILY_CALLS || FREE_DAILY_LIMIT *
 // Client-asserted Pro is only acceptable while testing without StoreKit.
 // Must stay off in production until receipt validation exists.
 const ALLOW_CLIENT_PRO = process.env.ALLOW_CLIENT_PRO === 'true';
+// Shared secret for the RevenueCat webhook (Authorization header value set in
+// the RevenueCat dashboard). Unset → the endpoint refuses all requests.
+const RC_WEBHOOK_AUTH = process.env.RC_WEBHOOK_AUTH || '';
 const UPSTASH_REDIS_REST_URL = process.env.UPSTASH_REDIS_REST_URL;
 const UPSTASH_REDIS_REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN;
 
@@ -160,6 +164,23 @@ async function callsIncrement(deviceId, dateKey) {
   const calls = await redisCommand('incr', [key]);
   await redisCommand('expire', [key, 60 * 60 * 48]).catch(() => {});
   return Number(calls) || 0;
+}
+
+// Entitlement write with an expiry, for webhook-validated Pro. TTL slightly
+// past the subscription's own expiration means a lapsed sub degrades to free
+// automatically even if the EXPIRATION webhook never arrives.
+async function entitlementSet(deviceId, isPro, ttlSeconds) {
+  if (!redisEnabled()) {
+    const record = memoryGet(memoryUsage, deviceId, toDateKey(undefined));
+    memoryUsage.set(deviceId, { ...record, isPro });
+    return;
+  }
+  const entKey = `ent:${deviceId}`;
+  if (isPro && Number.isFinite(ttlSeconds) && ttlSeconds > 0) {
+    await redisCommand('set', [entKey, '1'], { query: { EX: Math.ceil(ttlSeconds) } });
+  } else {
+    await redisCommand('set', [entKey, isPro ? '1' : '0']);
+  }
 }
 
 async function usageSetPro(deviceId, dateKey, isPro) {
@@ -300,6 +321,44 @@ app.post('/v1/usage/pro', rateLimit, async (req, res) => {
   }
 });
 
+function secretMatches(provided, expected) {
+  const a = Buffer.from(String(provided));
+  const b = Buffer.from(String(expected));
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+// RevenueCat server-to-server webhook — the receipt-validated path that makes
+// ALLOW_CLIENT_PRO unnecessary in production. RevenueCat authenticates with
+// the exact Authorization header value configured in its dashboard; compare
+// against RC_WEBHOOK_AUTH (accept with or without a "Bearer " prefix, since
+// the dashboard field is free-form). No rateLimit middleware: requests come
+// from RevenueCat, not devices, so there is no x-device-id header.
+app.post('/v1/rc-webhook', async (req, res) => {
+  if (!RC_WEBHOOK_AUTH) {
+    return res.status(503).json({ error: 'webhook not configured' });
+  }
+  const auth = req.header('authorization') || '';
+  if (!secretMatches(auth, RC_WEBHOOK_AUTH) && !secretMatches(auth, `Bearer ${RC_WEBHOOK_AUTH}`)) {
+    return res.status(401).json({ error: 'unauthorized' });
+  }
+
+  const event = req.body?.event;
+  const updates = rcEntitlementUpdates(event);
+  try {
+    for (const update of updates) {
+      await entitlementSet(update.deviceId, update.isPro, update.ttlSeconds);
+    }
+    // Always 200 for authenticated events we ignore (CANCELLATION, TEST, …)
+    // so RevenueCat doesn't retry them forever.
+    console.log(`[rc-webhook] ${event?.type || 'unknown'}: applied ${updates.length} update(s)`);
+    res.json({ ok: true, applied: updates.length });
+  } catch (error) {
+    console.error('[rc-webhook] entitlement write failed', error);
+    // 5xx so RevenueCat retries — a dropped grant here is a paying user
+    // stuck on the free tier.
+    res.status(500).json({ error: 'entitlement update failed' });
+  }
+});
 
 async function fetchUpstreamWithRetry(body, attempts = 3) {
   let lastError;

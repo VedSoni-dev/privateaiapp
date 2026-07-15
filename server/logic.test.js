@@ -3,7 +3,7 @@
 // gets charged against someone's daily quota. Run with: node --test server/
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { toDateKey, usageSummary, clampNumber, validateMessages, memoryRecord, memoryGet } from './logic.js';
+import { toDateKey, usageSummary, clampNumber, validateMessages, memoryRecord, memoryGet, rcEntitlementUpdates } from './logic.js';
 
 const NOW = new Date('2026-07-15T12:00:00Z');
 
@@ -163,5 +163,90 @@ describe('memoryRecord / memoryGet (in-memory usage store, no-Redis fallback)', 
     const record = memoryGet(store, 'device-1', '2026-07-16');
     assert.equal(record.messages, 0);
     assert.equal(record.date, '2026-07-16');
+  });
+});
+
+describe('rcEntitlementUpdates (RevenueCat webhook)', () => {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  test('INITIAL_PURCHASE grants pro with TTL = time-to-expiry plus 3-day grace', () => {
+    const updates = rcEntitlementUpdates({
+      type: 'INITIAL_PURCHASE',
+      app_user_id: 'device-1',
+      expiration_at_ms: NOW.getTime() + 30 * DAY_MS,
+    }, NOW);
+    assert.equal(updates.length, 1);
+    assert.equal(updates[0].deviceId, 'device-1');
+    assert.equal(updates[0].isPro, true);
+    assert.equal(updates[0].ttlSeconds, (33 * DAY_MS) / 1000);
+  });
+
+  test('RENEWAL and UNCANCELLATION also grant', () => {
+    for (const type of ['RENEWAL', 'UNCANCELLATION']) {
+      const updates = rcEntitlementUpdates({ type, app_user_id: 'device-1' }, NOW);
+      assert.equal(updates.length, 1, type);
+      assert.equal(updates[0].isPro, true, type);
+    }
+  });
+
+  test('EXPIRATION revokes pro', () => {
+    const updates = rcEntitlementUpdates({ type: 'EXPIRATION', app_user_id: 'device-1' }, NOW);
+    assert.deepEqual(updates, [{ deviceId: 'device-1', isPro: false }]);
+  });
+
+  test('CANCELLATION changes nothing — user stays entitled until EXPIRATION', () => {
+    assert.deepEqual(rcEntitlementUpdates({ type: 'CANCELLATION', app_user_id: 'device-1' }, NOW), []);
+  });
+
+  test('BILLING_ISSUE and TEST events change nothing', () => {
+    assert.deepEqual(rcEntitlementUpdates({ type: 'BILLING_ISSUE', app_user_id: 'device-1' }, NOW), []);
+    assert.deepEqual(rcEntitlementUpdates({ type: 'TEST', app_user_id: 'device-1' }, NOW), []);
+  });
+
+  test('missing or past expiration falls back to the 35-day default TTL', () => {
+    const noExp = rcEntitlementUpdates({ type: 'RENEWAL', app_user_id: 'device-1' }, NOW);
+    assert.equal(noExp[0].ttlSeconds, (38 * DAY_MS) / 1000);
+    const pastExp = rcEntitlementUpdates({
+      type: 'RENEWAL', app_user_id: 'device-1', expiration_at_ms: NOW.getTime() - DAY_MS,
+    }, NOW);
+    assert.equal(pastExp[0].ttlSeconds, (38 * DAY_MS) / 1000);
+  });
+
+  test('anonymous app_user_id resolves through aliases to the real device id', () => {
+    const updates = rcEntitlementUpdates({
+      type: 'INITIAL_PURCHASE',
+      app_user_id: '$RCAnonymousID:abc123',
+      aliases: ['$RCAnonymousID:abc123', 'device-9'],
+    }, NOW);
+    assert.equal(updates[0].deviceId, 'device-9');
+  });
+
+  test('anonymous-only ids produce no update (nothing to key on)', () => {
+    const updates = rcEntitlementUpdates({
+      type: 'INITIAL_PURCHASE',
+      app_user_id: '$RCAnonymousID:abc123',
+      aliases: ['$RCAnonymousID:abc123'],
+    }, NOW);
+    assert.deepEqual(updates, []);
+  });
+
+  test('TRANSFER revokes the old device before granting the new one', () => {
+    const updates = rcEntitlementUpdates({
+      type: 'TRANSFER',
+      transferred_from: ['device-old', '$RCAnonymousID:x'],
+      transferred_to: ['device-new'],
+    }, NOW);
+    assert.equal(updates.length, 2);
+    assert.deepEqual(updates[0], { deviceId: 'device-old', isPro: false });
+    assert.equal(updates[1].deviceId, 'device-new');
+    assert.equal(updates[1].isPro, true);
+    assert.equal(updates[1].ttlSeconds, (38 * DAY_MS) / 1000);
+  });
+
+  test('unknown event types and malformed payloads are ignored', () => {
+    assert.deepEqual(rcEntitlementUpdates({ type: 'SOMETHING_NEW', app_user_id: 'd' }, NOW), []);
+    assert.deepEqual(rcEntitlementUpdates(null, NOW), []);
+    assert.deepEqual(rcEntitlementUpdates('garbage', NOW), []);
+    assert.deepEqual(rcEntitlementUpdates({}, NOW), []);
   });
 });

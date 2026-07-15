@@ -10,6 +10,7 @@ import {
   Linking,
 } from 'react-native';
 import { Fonts, useTheme, type AppColorsType } from '../theme';
+import { getProPriceString } from '../services/PurchaseService';
 
 // App Store guideline 3.1.2: paywalls must link Terms of Use and Privacy Policy.
 const TERMS_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
@@ -48,6 +49,14 @@ export const PaywallModal: React.FC<Props> = ({
 }) => {
   const { colors } = useTheme();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
+  // Apple localizes subscription prices per storefront, so the displayed
+  // price must come from StoreKit ("4,99 €" in Germany, not "$4.99"). The
+  // hardcoded string is only the fallback for Expo Go / pre-config builds.
+  const [price, setPrice] = React.useState('$4.99');
+  React.useEffect(() => {
+    if (!visible) return;
+    getProPriceString().then(p => { if (p) setPrice(p); }).catch(() => {});
+  }, [visible]);
   return (
   <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
     <SafeAreaView style={styles.safe}>
@@ -88,7 +97,7 @@ export const PaywallModal: React.FC<Props> = ({
             </View>
             <Text style={[styles.planName, styles.planNamePro]}>Pro</Text>
             <View style={styles.priceRow}>
-              <Text style={[styles.planPrice, styles.planPricePro]}>$4.99</Text>
+              <Text style={[styles.planPrice, styles.planPricePro]}>{price}</Text>
               <Text style={[styles.pricePer, styles.pricePerPro]}>{'/month'}</Text>
             </View>
             {FEATURES_PRO.map(feature => (
@@ -105,13 +114,13 @@ export const PaywallModal: React.FC<Props> = ({
           activeOpacity={0.85}
           style={styles.cta}
           accessibilityRole="button"
-          accessibilityLabel="Start Pro subscription, $4.99 per month"
+          accessibilityLabel={`Start Pro subscription, ${price} per month`}
         >
-          <Text style={styles.ctaTxt}>Start Pro - $4.99/month</Text>
+          <Text style={styles.ctaTxt}>Start Pro - {price}/month</Text>
         </TouchableOpacity>
 
         <Text style={styles.legal}>
-          $4.99/month, billed via the App Store. Auto-renews monthly until cancelled.{'\n'}
+          {price}/month, billed via the App Store. Auto-renews monthly until cancelled.{'\n'}
           Cancel anytime in iOS Settings → your Apple ID → Subscriptions;{'\n'}
           cancel at least 24h before renewal to avoid the next charge.
         </Text>

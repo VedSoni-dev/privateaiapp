@@ -6,13 +6,18 @@
  * the app keeps working. Real purchases only function in dev-client/TestFlight
  * builds AND once REVENUECAT_IOS_KEY below is set to a real key.
  *
- * Setup checklist (user-side, one time):
+ * Setup checklist (user-side, one time — full walkthrough in LAUNCH.md):
  *  1. App Store Connect → create auto-renewing subscription (e.g. `pro_monthly`, $4.99)
  *  2. revenuecat.com → new project → add iOS app → paste App Store Connect
  *     App-Specific Shared Secret → create entitlement `pro` attached to the product
  *  3. Copy the public Apple API key (starts with `appl_`) into REVENUECAT_IOS_KEY
+ *  4. RevenueCat → Integrations → Webhooks → URL
+ *     https://private-ai-backend.onrender.com/v1/rc-webhook with an
+ *     Authorization header matching Render's RC_WEBHOOK_AUTH env var — that
+ *     webhook is what flips `ent:{deviceId}` server-side (see server/index.js).
  */
 import { activatePro, deactivatePro } from './UsageService';
+import { getDeviceId } from './DeviceId';
 
 // RevenueCat dashboard → Project settings → API keys → Apple.
 // Public key, safe to embed in the binary.
@@ -56,7 +61,10 @@ export async function initPurchases(): Promise<void> {
   if (!P || !configured() || initialized) return;
   initialized = true;
   try {
-    P.configure({ apiKey: REVENUECAT_IOS_KEY });
+    // appUserID = this app's device id, so RevenueCat webhook events carry an
+    // app_user_id the server can map straight onto its ent:{deviceId} keys.
+    const deviceId = await getDeviceId();
+    P.configure({ apiKey: REVENUECAT_IOS_KEY, appUserID: deviceId });
     P.addCustomerInfoUpdateListener((info: any) => {
       void syncEntitlement(info);
     });
@@ -64,6 +72,21 @@ export async function initPurchases(): Promise<void> {
     await syncEntitlement(info);
   } catch (e) {
     console.warn('[Purchases] init failed:', e);
+  }
+}
+
+/**
+ * Localized price string from StoreKit (e.g. "$4.99", "4,99 €"), or null in
+ * Expo Go / before the key is set. The paywall falls back to the US price.
+ */
+export async function getProPriceString(): Promise<string | null> {
+  const P = native();
+  if (!P || !configured()) return null;
+  try {
+    const offerings = await P.getOfferings();
+    return offerings?.current?.availablePackages?.[0]?.product?.priceString ?? null;
+  } catch {
+    return null;
   }
 }
 

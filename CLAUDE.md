@@ -68,6 +68,8 @@ iPhone app (Expo, src/)
 Render backend: `PRIVATEMODE_API_KEY` (required), `UPSTASH_REDIS_REST_URL`,
 `UPSTASH_REDIS_REST_TOKEN` (without these usage falls back to per-instance
 memory — set them in production), `ALLOW_CLIENT_PRO` (TestFlight only),
+`RC_WEBHOOK_AUTH` (shared secret for the RevenueCat webhook; unset →
+`/v1/rc-webhook` refuses everything),
 `FREE_DAILY_LIMIT`, `MAX_DAILY_CALLS`, `RATE_LIMIT_MAX`, `MAX_TOKENS`, etc.
 (see top of `server/index.js`).
 
@@ -114,16 +116,18 @@ on markdown code blocks, chat session rename/delete (long-press in sidebar,
 fixed-brand card, `react-native-view-shot` captures it, `expo-sharing` opens
 the share sheet — both bundled in Expo Go; falls back to plain-text share).
 
-Open, in priority order:
-1. **Real IAP — code is wired, config is not**: `PurchaseService.ts` wraps
-   RevenueCat (lazy-required, Expo Go-safe) and the paywall has Restore +
-   Terms/Privacy links. Still needed from the user: App Store Connect
-   subscription product, RevenueCat project, paste the `appl_` key into
-   `PurchaseService.ts`, then a dev-client/TestFlight build. Server-side
-   receipt validation (RevenueCat webhook → set `ent:` in Redis) should then
-   replace `ALLOW_CLIENT_PRO`.
+Open, in priority order (full step-by-step: **LAUNCH.md**):
+1. **Real IAP — ALL code is done, config is not**: `PurchaseService.ts`
+   wraps RevenueCat (lazy-required, Expo Go-safe, appUserID = deviceId) and
+   the server validates entitlements via the RevenueCat webhook
+   (`POST /v1/rc-webhook`, auth = `RC_WEBHOOK_AUTH` env, logic + tests in
+   `server/logic.js`: `rcEntitlementUpdates`). Still needed from the user
+   (LAUNCH.md Day 1): App Store Connect agreements + subscription product,
+   RevenueCat project + webhook, paste the `appl_` key into
+   `PurchaseService.ts`, set `RC_WEBHOOK_AUTH` on Render, build. Once live,
+   `ALLOW_CLIENT_PRO` must be deleted.
 2. Privacy nutrition labels in App Store Connect (policy exists: PRIVACY.md,
-   linked from the paywall).
+   linked from the paywall; guidance in LAUNCH.md Day 2).
 3. Live Activities / Dynamic Island — CODE DONE, unverified until the first
    dev-client build: `LiveActivityService.ts` (lazy-required) wraps the
    deprecated-but-functional `expo-live-activity` 0.4.2 (last version that

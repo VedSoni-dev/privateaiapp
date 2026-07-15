@@ -43,6 +43,14 @@ const Card = {
 
 const CARD_WIDTH = Math.min(Dimensions.get('window').width - 48, 360);
 
+// Set this to the real App Store URL the moment the app is live (LAUNCH.md
+// step) — the card footer and the plain-text share both become an install
+// funnel. Empty string = pre-launch, shows the app name instead of a link.
+const APP_STORE_URL = '';
+// What actually gets printed on the card — short and typeable beats a full
+// https:// URL in an image.
+const APP_STORE_URL_DISPLAY = APP_STORE_URL.replace(/^https?:\/\//, '');
+
 // Markdown reads fine in the chat, but raw **stars** and ## hashes look
 // broken baked into an image — flatten to plain text for the card.
 function stripMarkdown(md: string): string {
@@ -111,7 +119,9 @@ export const ShareCardModal: React.FC<ShareCardModalProps> = ({ visible, target,
       console.warn('[ShareCard] capture failed:', String((error as Error)?.message ?? error));
       // Image capture unavailable — offer the plain-text share sheet instead.
       try {
-        await Share.share({ message: `${question.text}\n\n${answer.text}\n\n— answered privately by Private AI` });
+        await Share.share({
+          message: `${question.text}\n\n${answer.text}\n\n— answered privately by Private AI${APP_STORE_URL ? `\n${APP_STORE_URL}` : ''}`,
+        });
         onClose();
       } catch {
         setShareError("Couldn't open the share sheet. Try again.");
@@ -158,7 +168,9 @@ export const ShareCardModal: React.FC<ShareCardModalProps> = ({ visible, target,
 
               <View style={cardStyles.footer}>
                 <Text style={cardStyles.footerTagline}>Ask anything. Privately.</Text>
-                <Text style={cardStyles.footerApp}>Private AI for iPhone</Text>
+                <Text style={cardStyles.footerApp}>
+                  {APP_STORE_URL_DISPLAY || 'Private AI for iPhone'}
+                </Text>
               </View>
             </View>
           </View>

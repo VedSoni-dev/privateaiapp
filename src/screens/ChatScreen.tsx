@@ -20,6 +20,7 @@ import {
   Image,
   AccessibilityInfo,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
 import { LinearGradient } from 'expo-linear-gradient';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -91,8 +92,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
   const [remindMeScheduled, setRemindMeScheduled] = useState(false);
   const [usage, setUsage] = useState(getUsage());
   // "Memory moment" — the transparency chip shown when the AI learns a fact.
-  const [memoryMoment, setMemoryMoment] = useState<{ kind: 'learned' | 'dreamed' | 'nudge'; ids: string[]; label: string } | null>(null);
+  // kind 'share' reuses the same chip surface for the one-time share nudge.
+  const [memoryMoment, setMemoryMoment] = useState<{ kind: 'learned' | 'dreamed' | 'nudge' | 'share'; ids: string[]; label: string } | null>(null);
   const memoryMomentTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shareNudgeTargetRef = useRef<ShareCardTarget | null>(null);
+  const shareNudgeDelayTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [personalChips, setPersonalChips] = useState<SuggestionChip[] | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -176,8 +180,37 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
     return () => {
       clearTimeout(nudgeTimer);
       if (memoryMomentTimer.current) clearTimeout(memoryMomentTimer.current);
+      if (shareNudgeDelayTimer.current) clearTimeout(shareNudgeDelayTimer.current);
     };
   }, []);
+
+  // One-time share nudge: after the first substantial answer ever, point at
+  // the share-card feature while the "it actually answered that" feeling is
+  // fresh. Once, ever — a growth hook that repeats becomes a nag.
+  const SHARE_NUDGE_KEY = '@privateai/shareNudgeShown';
+  const maybeShowShareNudge = (question: string, answer: string) => {
+    if (answer.length < 180) return; // a thin answer isn't worth showing off
+    AsyncStorage.getItem(SHARE_NUDGE_KEY).then(seen => {
+      if (seen) return;
+      void AsyncStorage.setItem(SHARE_NUDGE_KEY, '1');
+      shareNudgeTargetRef.current = { question, answer };
+      // Slight delay so it lands after the answer-complete haptic, and wins
+      // over a memory chip if one fired for the same exchange.
+      shareNudgeDelayTimer.current = setTimeout(() => {
+        const label = 'Like this answer? Share it as an image';
+        setMemoryMoment({ kind: 'share', ids: [], label });
+        AccessibilityInfo.announceForAccessibility(label);
+        if (memoryMomentTimer.current) clearTimeout(memoryMomentTimer.current);
+        memoryMomentTimer.current = setTimeout(() => setMemoryMoment(null), 12000);
+      }, 1400);
+    }).catch(() => {});
+  };
+
+  const acceptShareNudge = () => {
+    setMemoryMoment(null);
+    void SafeHaptics.selection();
+    if (shareNudgeTargetRef.current) setShareCardTarget(shareNudgeTargetRef.current);
+  };
 
   const showMemoryMoment = (added: LearnedFact[], dreamed: boolean) => {
     const label = added.length
@@ -347,6 +380,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
       void learnInBackground(text, replyText, ({ added, dreamed }) => {
         showMemoryMoment(added, dreamed);
       });
+      maybeShowShareNudge(text, replyText);
     } catch (error) {
       setIsThinking(false);
       setIsGenerating(false);
@@ -668,9 +702,19 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
           {memoryMoment && (
             <View style={styles.memoryMomentRow}>
               <Text style={styles.memoryMomentText} numberOfLines={1}>
-                {memoryMoment.kind === 'learned' ? '🧠 ' : memoryMoment.kind === 'dreamed' ? '🌙 ' : '💡 '}
+                {memoryMoment.kind === 'learned' ? '🧠 ' : memoryMoment.kind === 'dreamed' ? '🌙 ' : memoryMoment.kind === 'share' ? '📸 ' : '💡 '}
                 {memoryMoment.label}
               </Text>
+              {memoryMoment.kind === 'share' && (
+                <TouchableOpacity
+                  onPress={acceptShareNudge}
+                  accessibilityRole="button"
+                  accessibilityLabel="Share this answer as an image"
+                  hitSlop={{ top: 10, bottom: 10, left: 8, right: 8 }}
+                >
+                  <Text style={styles.memoryMomentUndo}>Share</Text>
+                </TouchableOpacity>
+              )}
               {memoryMoment.ids.length > 0 && (
                 <TouchableOpacity
                   onPress={forgetMemoryMoment}
