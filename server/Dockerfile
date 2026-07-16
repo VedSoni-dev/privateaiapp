@@ -14,7 +14,7 @@ COPY --from=proxy /bin/privatemode-proxy /bin/privatemode-proxy
 COPY package.json ./
 RUN npm install --omit=dev
 
-COPY index.js ./
+COPY index.js logic.js ./
 
 EXPOSE 3000
 CMD ["node", "index.js"]
