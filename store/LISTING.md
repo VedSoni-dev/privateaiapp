@@ -83,8 +83,14 @@ a confidential-compute backend; responses carry an AI-generated disclosure
 under the input field. Web search is proxied through our server; the app
 contains no general-purpose browser.
 
+Content moderation: users can long-press any AI response and choose "Report"
+to flag it, which opens a prefilled report on our public issue tracker
+(the same contact channel listed in our Privacy Policy and Terms of Use).
+Terms of Use — including acceptable-use restrictions and the reporting
+mechanism — are linked in onboarding before first use and in the paywall.
+
 The share feature renders an image of a question/answer pair and opens the
-standard iOS share sheet.
+standard iOS share sheet — no photo library access is used or required.
 ```
 
 ## Category

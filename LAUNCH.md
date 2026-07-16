@@ -17,6 +17,10 @@ time — start them first.
   (App Store guideline 3.1.2), cancel disclosure.
 - Share loop — branded share-card images + one-time first-answer nudge;
   card footer turns into an App Store link via one constant (step 8).
+- Content moderation / App Review guideline 1.2: long-press an AI response →
+  "Report" opens a prefilled report on the public issue tracker (`legal.ts`).
+  `TERMS.md` (acceptable use + reporting + subscription terms) is linked in
+  onboarding before first use and in the paywall alongside `PRIVACY.md`.
 - Usage gating — 20 free messages/day counted server-side, atomic, refunded
   on upstream failure.
 
@@ -106,6 +110,17 @@ Sandbox purchases are automatic in TestFlight — you won't be charged.
 5. Settings → paywall → Restore Purchases → should succeed.
 6. Also sanity-check: share card renders + shares, first-answer nudge fires
    on a fresh install, dark mode, chat history, web search.
+7. **⚠️ Highest first-submission crash risk: Live Activities.** This is the
+   FIRST time `expo-live-activity` (deprecated upstream) runs on a real
+   device — it's never been verified. Send a message, background the app
+   mid-answer, check the Dynamic Island / lock screen shows and completes
+   correctly. Do this several times. Every call site is wrapped in try/catch
+   (see `LiveActivityService.ts`), which stops a JS-level failure from
+   crashing the app, but a hard native-side crash in the deprecated package
+   itself would NOT be caught by that and WILL cause a rejection or removal
+   under guideline 2.1 if App Review hits it. If you see ANY crash, freeze,
+   or visual corruption here, stop and tell me before submitting — cutting
+   a build with Live Activities disabled is fast; a rejection costs days.
 
 ## Day 2 — store listing + submit
 

@@ -8,11 +8,13 @@ import {
   Dimensions,
   SafeAreaView,
   Image,
+  Linking,
 } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Fonts, useTheme, type AppColorsType } from '../theme';
 import { RootStackParamList } from '../navigation/types';
+import { TERMS_URL, PRIVACY_URL } from '../config/legal';
 
 const { width: W } = Dimensions.get('window');
 
@@ -159,6 +161,18 @@ export const OnboardingScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.skipText}>Skip</Text>
           </TouchableOpacity>
         )}
+
+        <Text style={styles.legal}>
+          By continuing, you agree to our{' '}
+          <Text style={styles.legalLink} onPress={() => Linking.openURL(TERMS_URL).catch(() => {})}>
+            Terms
+          </Text>
+          {' '}and{' '}
+          <Text style={styles.legalLink} onPress={() => Linking.openURL(PRIVACY_URL).catch(() => {})}>
+            Privacy Policy
+          </Text>
+          .
+        </Text>
       </View>
     </SafeAreaView>
   );
@@ -267,5 +281,15 @@ const createStyles = (colors: AppColorsType) => StyleSheet.create({
   skipText: {
     fontSize: 14,
     color: colors.textMuted,
+  },
+  legal: {
+    fontSize: 11.5,
+    color: colors.textMuted,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  legalLink: {
+    color: colors.accentCyan,
+    fontWeight: '600',
   },
 });

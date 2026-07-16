@@ -19,6 +19,7 @@ import {
   ScrollView,
   Image,
   AccessibilityInfo,
+  Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { PanGestureHandler, State } from 'react-native-gesture-handler';
@@ -42,6 +43,7 @@ import * as Memory from '../services/MemoryService';
 import * as ChatStorage from '../services/ChatStorageService';
 import type { ChatSession } from '../services/ChatStorageService';
 import { canSendMessage, recordMessage, getUsage, FREE_DAILY_LIMIT, initUsage } from '../services/UsageService';
+import { reportContentUrl } from '../config/legal';
 
 type ChatScreenProps = {
   navigation: StackNavigationProp<RootStackParamList, 'Chat'>;
@@ -565,6 +567,15 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
     setShareCardTarget({ question, answer: message.text });
   }
 
+  // Opens a prefilled report on the public issue tracker already named as
+  // our contact channel in PRIVACY.md/TERMS.md — the reporting mechanism
+  // App Review expects for an app whose content is AI-generated.
+  function handleReportMessage(text: string): void {
+    Linking.openURL(reportContentUrl(text)).catch(() => {
+      Alert.alert('Report', "Couldn't open the report page. You can also reach us via the link in Settings → Privacy Policy.");
+    });
+  }
+
   function handleLongPressMessage(message: ChatMessage, index: number): void {
     if (!message.text) return;
     const buttons = message.isUser
@@ -582,6 +593,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
           { text: 'Share as Image', onPress: () => handleShareAsImage(index) },
           { text: 'Share Text', onPress: () => { Share.share({ message: message.text }).catch(() => {}); } },
           { text: 'Add to Calendar', onPress: () => void addToCalendar(message.text) },
+          { text: 'Report', style: 'destructive' as const, onPress: () => handleReportMessage(message.text) },
           { text: 'Cancel', style: 'cancel' as const },
         ];
     Alert.alert('Message', undefined, buttons);

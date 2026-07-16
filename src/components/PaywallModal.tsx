@@ -11,10 +11,7 @@ import {
 } from 'react-native';
 import { Fonts, useTheme, type AppColorsType } from '../theme';
 import { getProPriceString } from '../services/PurchaseService';
-
-// App Store guideline 3.1.2: paywalls must link Terms of Use and Privacy Policy.
-const TERMS_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
-const PRIVACY_URL = 'https://github.com/VedSoni-dev/privateaiapp/blob/main/PRIVACY.md';
+import { TERMS_URL, PRIVACY_URL } from '../config/legal';
 
 interface Props {
   visible: boolean;
