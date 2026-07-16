@@ -47,9 +47,9 @@ export const PaywallModal: React.FC<Props> = ({
   const { colors } = useTheme();
   const styles = React.useMemo(() => createStyles(colors), [colors]);
   // Apple localizes subscription prices per storefront, so the displayed
-  // price must come from StoreKit ("4,99 €" in Germany, not "$4.99"). The
+  // price must come from StoreKit ("19,99 €" in Germany, not "$19.99"). The
   // hardcoded string is only the fallback for Expo Go / pre-config builds.
-  const [price, setPrice] = React.useState('$4.99');
+  const [price, setPrice] = React.useState('$19.99');
   React.useEffect(() => {
     if (!visible) return;
     getProPriceString().then(p => { if (p) setPrice(p); }).catch(() => {});
