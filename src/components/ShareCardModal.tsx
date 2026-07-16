@@ -43,10 +43,11 @@ const Card = {
 
 const CARD_WIDTH = Math.min(Dimensions.get('window').width - 48, 360);
 
-// Set this to the real App Store URL the moment the app is live (LAUNCH.md
-// step) — the card footer and the plain-text share both become an install
-// funnel. Empty string = pre-launch, shows the app name instead of a link.
-const APP_STORE_URL = '';
+// The card footer and the plain-text share both point here — every shared
+// answer is an install funnel. The id is the App Store Connect "Apple ID"
+// for this app (same one as eas.json's ascAppId); the URL is valid the
+// moment the app record exists, even before the app is approved.
+const APP_STORE_URL = 'https://apps.apple.com/app/id6785089361';
 // What actually gets printed on the card — short and typeable beats a full
 // https:// URL in an image.
 const APP_STORE_URL_DISPLAY = APP_STORE_URL.replace(/^https?:\/\//, '');
