@@ -21,7 +21,7 @@ import { getDeviceId } from './DeviceId';
 
 // RevenueCat dashboard → Project settings → API keys → Apple.
 // Public key, safe to embed in the binary.
-const REVENUECAT_IOS_KEY = 'appl_REPLACE_ME';
+const REVENUECAT_IOS_KEY = 'appl_YotdLyLjfToEZpkucfDKgWajTYT';
 const ENTITLEMENT_ID = 'pro';
 
 let PurchasesModule: any = null;
