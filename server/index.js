@@ -8,6 +8,12 @@ const PORT = process.env.PORT || 3000;
 const PROXY_PORT = Number(process.env.PRIVATEMODE_PROXY_PORT || 8080);
 const PROXY_URL = `http://127.0.0.1:${PROXY_PORT}/v1`;
 const MODEL = process.env.PRIVATEMODE_MODEL || 'gpt-oss-120b';
+// Pinned version id (not "kimi-latest") so pricing/behavior don't shift
+// under us — same reasoning as pinning gpt-oss-120b instead of a "-latest"
+// alias. Only applied to the user-visible streaming answer for Pro users;
+// internal non-streaming calls (decision pass, memory extraction) always
+// use the cheap model since the user never sees that output directly.
+const MODEL_PRO = process.env.PRIVATEMODE_MODEL_PRO || 'kimi-k2.6';
 
 const JSON_LIMIT = process.env.JSON_LIMIT || '512kb';
 const WINDOW_MS = Number(process.env.RATE_LIMIT_WINDOW_MS || 60_000);
@@ -257,6 +263,7 @@ app.get('/health', (_req, res) => {
   res.json({
     ok: true,
     model: MODEL,
+    modelPro: MODEL_PRO,
     inFlight: inFlightUpstream,
     usageStore: redisEnabled() ? 'upstash' : 'memory',
     uptime: process.uptime(),
@@ -406,6 +413,10 @@ app.post('/v1/chat', rateLimit, capacityGuard, async (req, res) => {
   // user perceives as one message; non-streaming calls (tool decision,
   // memory extraction) ride along but count toward the total-call backstop.
   let messageCounted = false;
+  // Defaults to false (cheap model) if the usage gate is unreachable — an
+  // entitlement lookup failure should never accidentally route someone to
+  // the pricier model.
+  let isPro = false;
   if (deviceId) {
     try {
       const totalCalls = await callsIncrement(deviceId, dateKey);
@@ -413,6 +424,7 @@ app.post('/v1/chat', rateLimit, capacityGuard, async (req, res) => {
         ? await usageIncrement(deviceId, dateKey)
         : await usageGetRecord(deviceId, dateKey);
       messageCounted = isStreamRequest;
+      isPro = usage.isPro;
 
       const overMessages = isStreamRequest
         ? usage.messages > FREE_DAILY_LIMIT
@@ -433,7 +445,7 @@ app.post('/v1/chat', rateLimit, capacityGuard, async (req, res) => {
   }
 
   const body = {
-    model: MODEL,
+    model: isStreamRequest && isPro ? MODEL_PRO : MODEL,
     messages: validated.messages,
     max_tokens: clampNumber(maxTokens, 800, 1, MAX_TOKENS),
     temperature: clampNumber(temperature, 0.7, 0, 1.5),

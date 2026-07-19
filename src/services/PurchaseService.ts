@@ -7,7 +7,7 @@
  * builds AND once REVENUECAT_IOS_KEY below is set to a real key.
  *
  * Setup checklist (user-side, one time — full walkthrough in LAUNCH.md):
- *  1. App Store Connect → create auto-renewing subscription (e.g. `pro_monthly`, $19.99)
+ *  1. App Store Connect → create auto-renewing subscription (e.g. `pro_monthly`, $20.00)
  *  2. revenuecat.com → new project → add iOS app → paste App Store Connect
  *     App-Specific Shared Secret → create entitlement `pro` attached to the product
  *  3. Copy the public Apple API key (starts with `appl_`) into REVENUECAT_IOS_KEY
@@ -76,7 +76,7 @@ export async function initPurchases(): Promise<void> {
 }
 
 /**
- * Localized price string from StoreKit (e.g. "$19.99", "19,99 €"), or null in
+ * Localized price string from StoreKit (e.g. "$20.00", "20,00 €"), or null in
  * Expo Go / before the key is set. The paywall falls back to the US price.
  */
 export async function getProPriceString(): Promise<string | null> {

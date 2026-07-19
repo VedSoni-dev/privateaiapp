@@ -43,9 +43,10 @@ time — start them first.
 ### 3. App Store Connect: subscription product
 - App → Monetization → Subscriptions → create group `Pro`.
 - Add auto-renewable subscription: reference name `Pro Monthly`, product ID
-  **`pro_monthly`**, 1 month, $19.99 (or your price — the paywall fetches the
+  **`pro_monthly`**, 1 month, $20.00 (or your price — the paywall fetches the
   localized price from StoreKit at display time and only falls back to a
-  hardcoded "$19.99" in Expo Go, so no code change needed).
+  hardcoded "$20.00" in Expo Go, so no code change needed). Apple's current
+  flexible pricing supports exact whole-dollar tiers, not just .99 endings.
 - Add the localization (display name "Pro", description "Unlimited messages").
 - The review screenshot for the subscription can be added Day 2 (any paywall
   screenshot from the TestFlight build works).
@@ -156,7 +157,7 @@ Match PRIVACY.md honestly. With the current architecture:
   MUST be submitted together with an app version).
 - Add the subscription review screenshot (paywall screenshot).
 - App Review notes: "Free tier: 20 messages/day, no account needed. Pro
-  ($19.99/mo auto-renewing via StoreKit/RevenueCat) removes the cap. AI
+  ($20.00/mo auto-renewing via StoreKit/RevenueCat) removes the cap. AI
   responses come from a confidential-compute backend; web search is
   server-proxied. No login required — reviewers can use it immediately."
 - Select "Release this version automatically" if you want it live the moment

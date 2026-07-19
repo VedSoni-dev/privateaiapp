@@ -11,5 +11,7 @@ services:
         value: 3000
       - key: PRIVATEMODE_MODEL
         value: gpt-oss-120b
+      - key: PRIVATEMODE_MODEL_PRO
+        value: kimi-k2.6
       - key: PRIVATEMODE_API_KEY
         sync: false

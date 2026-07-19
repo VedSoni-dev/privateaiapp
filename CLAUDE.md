@@ -69,7 +69,11 @@ Render backend: `PRIVATEMODE_API_KEY` (required), `UPSTASH_REDIS_REST_URL`,
 `UPSTASH_REDIS_REST_TOKEN` (without these usage falls back to per-instance
 memory — set them in production), `ALLOW_CLIENT_PRO` (TestFlight only),
 `RC_WEBHOOK_AUTH` (shared secret for the RevenueCat webhook; unset →
-`/v1/rc-webhook` refuses everything),
+`/v1/rc-webhook` refuses everything), `PRIVATEMODE_MODEL` (default
+`gpt-oss-120b`, used for free-tier + all non-streaming/internal calls),
+`PRIVATEMODE_MODEL_PRO` (default `kimi-k2.6`, used only for a Pro user's
+streaming answer — see Privatemode pricing before changing either; Kimi
+costs ~4.5x gpt-oss-120b per output token),
 `FREE_DAILY_LIMIT`, `MAX_DAILY_CALLS`, `RATE_LIMIT_MAX`, `MAX_TOKENS`, etc.
 (see top of `server/index.js`).
 
