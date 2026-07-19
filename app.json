@@ -15,7 +15,8 @@
       "bundleIdentifier": "inc.neocast.privateai",
       "supportsTablet": true,
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSFaceIDUsageDescription": "Face ID keeps your conversations locked so only you can open Private AI."
       }
     },
     "android": {

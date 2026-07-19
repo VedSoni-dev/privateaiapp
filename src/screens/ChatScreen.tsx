@@ -43,6 +43,7 @@ import * as Memory from '../services/MemoryService';
 import * as ChatStorage from '../services/ChatStorageService';
 import type { ChatSession } from '../services/ChatStorageService';
 import { canSendMessage, recordMessage, getUsage, FREE_DAILY_LIMIT, initUsage } from '../services/UsageService';
+import * as AppLock from '../services/AppLockService';
 import { reportContentUrl } from '../config/legal';
 
 type ChatScreenProps = {
@@ -103,6 +104,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
   const [menuOpen, setMenuOpen] = useState(false);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [sessionSearch, setSessionSearch] = useState('');
+  // Ghost chat: nothing persists — no session save, no memory learning.
+  const [ghostMode, setGhostMode] = useState(false);
+  const ghostModeRef = useRef(false);
+  const [lockEnabled, setLockEnabled] = useState(false);
+  const [lockAvailable, setLockAvailable] = useState(false);
   const currentSessionRef = useRef<ChatStorage.ChatSessionFull>(ChatStorage.createSession());
   const flatListRef = useRef<FlatList>(null);
   const streamCancelRef = useRef<(() => void) | null>(null);
@@ -139,6 +145,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
       // Lazily required so older dev-client binaries don't crash on import.
       const Clipboard = require('expo-clipboard');
       await Clipboard.setStringAsync(text);
+      // Alert menu already closed — a quiet status line is the only feedback
+      // the user gets that the copy actually happened.
+      void SafeHaptics.selection();
+      setStatusText('Copied');
+      setTimeout(() => setStatusText(prev => (prev === 'Copied' ? '' : prev)), 1500);
     } catch {
       await Share.share({ message: text }).catch(() => {});
     }
@@ -169,6 +180,29 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
     setInputText(`About this:\n\n"${shared}"\n\n`);
     navigation.setParams({ sharedText: undefined });
   }, [route.params?.sharedText, navigation]);
+
+  useEffect(() => { ghostModeRef.current = ghostMode; }, [ghostMode]);
+
+  useEffect(() => {
+    AppLock.isLockEnabled().then(setLockEnabled).catch(() => {});
+    AppLock.isLockAvailable().then(setLockAvailable).catch(() => {});
+  }, []);
+
+  const toggleAppLock = (enabled: boolean) => {
+    if (!enabled) {
+      // Turning the lock OFF is itself a protected action — otherwise anyone
+      // holding the unlocked phone for a second can disarm it silently.
+      void AppLock.authenticate().then(ok => {
+        if (!ok) return;
+        void AppLock.setLockEnabled(false);
+        setLockEnabled(false);
+      });
+      return;
+    }
+    void AppLock.setLockEnabled(true);
+    setLockEnabled(true);
+    void SafeHaptics.notificationSuccess();
+  };
 
   useEffect(() => {
     initUsage().then(() => setUsage(getUsage()));
@@ -353,17 +387,20 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
       };
       setMessages(prev => {
         const next = [...prev, assistantMessage];
-        // Auto-save session after each completed exchange.
-        const session = currentSessionRef.current;
-        if (session.title === 'New chat' && userMessage.text) {
-          session.title = ChatStorage.autoTitle(text);
+        // Auto-save session after each completed exchange — unless this is a
+        // ghost chat, whose whole contract is that nothing touches disk.
+        if (!ghostModeRef.current) {
+          const session = currentSessionRef.current;
+          if (session.title === 'New chat' && userMessage.text) {
+            session.title = ChatStorage.autoTitle(text);
+          }
+          session.messages = next;
+          session.updatedAt = Date.now();
+          session.messageCount = next.length;
+          void ChatStorage.saveSession(session).then(() => {
+            ChatStorage.loadSessions().then(s => setSessions(s)).catch(() => {});
+          });
         }
-        session.messages = next;
-        session.updatedAt = Date.now();
-        session.messageCount = next.length;
-        void ChatStorage.saveSession(session).then(() => {
-          ChatStorage.loadSessions().then(s => setSessions(s)).catch(() => {});
-        });
         return next;
       });
       setCurrentResponse('');
@@ -378,11 +415,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
       void BackgroundExecution.endBackgroundGrace();
 
       // Learn durable facts from this exchange in the background; surface
-      // what was learned as a dismissable "memory moment" chip.
-      void learnInBackground(text, replyText, ({ added, dreamed }) => {
-        showMemoryMoment(added, dreamed);
-      });
-      maybeShowShareNudge(text, replyText);
+      // what was learned as a dismissable "memory moment" chip. Ghost chats
+      // learn nothing — "not saved" must mean memory too, not just history.
+      if (!ghostModeRef.current) {
+        void learnInBackground(text, replyText, ({ added, dreamed }) => {
+          showMemoryMoment(added, dreamed);
+        });
+        maybeShowShareNudge(text, replyText);
+      }
     } catch (error) {
       setIsThinking(false);
       setIsGenerating(false);
@@ -436,11 +476,12 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
     }
   };
 
-  const handleNewChat = () => {
+  const handleNewChat = (options?: { ghost?: boolean }) => {
     if (isGenerating) {
       handleStop();
     }
     currentSessionRef.current = ChatStorage.createSession();
+    setGhostMode(Boolean(options?.ghost));
     setMessages([]);
     setInputText('');
     setCurrentResponse('');
@@ -451,6 +492,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
     const full = await ChatStorage.loadSession(id);
     if (full) {
       currentSessionRef.current = full;
+      setGhostMode(false); // saved sessions are by definition not ghosts
       setMessages(full.messages);
     }
     closeMenu();
@@ -476,6 +518,54 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
         },
       },
     ]);
+  };
+
+  // Panic wipe. Keeps: device_id (wiping it would hand out a fresh free
+  // quota — abuse loophole), usage (server is source of truth anyway),
+  // onboarding, theme, and the app-lock setting (erasing data shouldn't
+  // silently disarm security).
+  const handleEraseEverything = () => {
+    Alert.alert(
+      'Erase everything?',
+      'All chats, memories, and personalized suggestions on this device will be permanently deleted. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Erase',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              if (isGenerating) handleStop({ quiet: true });
+              try {
+                await Memory.clearAll();
+                const keys = await AsyncStorage.getAllKeys();
+                const KEEP = new Set([
+                  '@privateai/device_id',
+                  '@privateai/usage',
+                  '@privateai/onboarding_done',
+                  '@privateai/theme_mode',
+                  '@privateai/app_lock',
+                ]);
+                const wipe = keys.filter(k => k.startsWith('@privateai/') && !KEEP.has(k));
+                if (wipe.length) await AsyncStorage.multiRemove(wipe);
+              } catch {
+                /* partial wipe is still a wipe — don't scare with an error */
+              }
+              currentSessionRef.current = ChatStorage.createSession();
+              setMessages([]);
+              setSessions([]);
+              setPersonalChips(null);
+              setMemoryMoment(null);
+              setInputText('');
+              setCurrentResponse('');
+              void SafeHaptics.notificationSuccess();
+              AccessibilityInfo.announceForAccessibility('Everything erased');
+              closeMenu();
+            })();
+          },
+        },
+      ],
+    );
   };
 
   const handleRenameSession = (session: ChatSession) => {
@@ -578,6 +668,7 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
 
   function handleLongPressMessage(message: ChatMessage, index: number): void {
     if (!message.text) return;
+    void SafeHaptics.impactLight();
     const buttons = message.isUser
       ? [
           { text: 'Edit', onPress: () => handleEditMessage(index) },
@@ -640,8 +731,14 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
           <View>
             <Text style={styles.headerTitle}>Private AI</Text>
             <View style={styles.headerBadgeRow}>
-              <View style={styles.onlineDot} />
-              <Text style={styles.headerSubtitle}>Confidential · Encrypted</Text>
+              {ghostMode ? (
+                <Text style={styles.ghostBadge}>👻 Ghost chat · not saved</Text>
+              ) : (
+                <>
+                  <View style={styles.onlineDot} />
+                  <Text style={styles.headerSubtitle}>Confidential · Encrypted</Text>
+                </>
+              )}
             </View>
           </View>
         </View>
@@ -1021,6 +1118,60 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({ navigation, route }) => 
               />
             </View>
 
+            <Text style={styles.panelSection}>PRIVACY</Text>
+            <TouchableOpacity
+              style={styles.panelRow}
+              accessibilityRole="button"
+              accessibilityLabel="Start a ghost chat that is never saved"
+              onPress={() => {
+                void SafeHaptics.impactLight();
+                handleNewChat({ ghost: true });
+                closeMenu();
+              }}
+            >
+              <Text style={styles.panelRowIcon}>👻</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.panelRowText}>Ghost chat</Text>
+                <Text style={styles.panelRowSub}>Never saved. No history, no memory.</Text>
+              </View>
+            </TouchableOpacity>
+
+            <View style={styles.panelRow}>
+              <Text style={styles.panelRowIcon}>🔐</Text>
+              <View style={styles.switchTextWrap}>
+                <Text style={styles.panelRowText}>Face ID lock</Text>
+                <Text style={styles.panelRowSub}>
+                  {lockAvailable
+                    ? 'Require Face ID to open the app'
+                    : 'Needs Face ID / Touch ID set up on this iPhone'}
+                </Text>
+              </View>
+              <Switch
+                value={lockEnabled}
+                onValueChange={toggleAppLock}
+                disabled={!lockAvailable}
+                trackColor={{ false: colors.borderStrong, true: colors.accentCyan }}
+                thumbColor="#FFFFFF"
+                ios_backgroundColor={colors.borderStrong}
+                accessibilityLabel="Require Face ID to open the app"
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.panelRow, styles.dangerRow]}
+              accessibilityRole="button"
+              accessibilityLabel="Erase all chats and memories on this device"
+              onPress={handleEraseEverything}
+            >
+              <Text style={styles.panelRowIcon}>🗑️</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.panelRowText, { color: colors.error, fontWeight: '600' }]}>
+                  Erase everything
+                </Text>
+                <Text style={styles.panelRowSub}>Wipe all chats and memories from this device</Text>
+              </View>
+            </TouchableOpacity>
+
             {!usage.isPro && (
               <TouchableOpacity
                 style={[styles.panelRow, styles.upgradeRow]}
@@ -1076,6 +1227,7 @@ const createStyles = (colors: AppColorsType) => StyleSheet.create({
   headerBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 2 },
   onlineDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.accentGreen },
   headerSubtitle: { fontSize: 11, color: colors.textMuted, letterSpacing: 0.1 },
+  ghostBadge:     { fontSize: 11, color: colors.accentViolet, letterSpacing: 0.1, fontWeight: '600' },
   menuButton: {
     width: 34, height: 34, borderRadius: 8,
     backgroundColor: colors.surfaceCard,
@@ -1291,6 +1443,7 @@ const createStyles = (colors: AppColorsType) => StyleSheet.create({
     lineHeight: 18,
   },
   upgradeRow:     { borderColor: colors.accentCyan + '44', backgroundColor: colors.accentCyan + '0A', marginBottom: 6 },
+  dangerRow:      { borderColor: colors.error + '44', backgroundColor: colors.error + '08' },
 
   apiBadge:      { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
   apiBadgeOn:    { backgroundColor: colors.accentGreen + '22' },

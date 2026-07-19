@@ -1,18 +1,20 @@
 import 'react-native-gesture-handler';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator, TransitionPresets } from '@react-navigation/stack';
-import { StatusBar, StyleSheet, View } from 'react-native';
+import { AppState, StatusBar, StyleSheet, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts } from 'expo-font';
 import * as Memory from './services/MemoryService';
 import { initUsage } from './services/UsageService';
 import { initPurchases } from './services/PurchaseService';
 import { initNotifications } from './services/NotificationService';
+import * as AppLock from './services/AppLockService';
 import { ThemeProvider, useTheme } from './theme';
 import { OnboardingScreen, ChatScreen } from './screens';
 import { checkOnboardingDone } from './screens/OnboardingScreen';
 import { ErrorBoundary } from './components';
+import { LockScreen } from './components/LockScreen';
 import { RootStackParamList } from './navigation/types';
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -37,6 +39,32 @@ const linking = {
 const AppInner: React.FC = () => {
   const { colors, mode } = useTheme();
   const [initialRoute, setInitialRoute] = useState<'Onboarding' | 'Chat' | null>(null);
+  const [locked, setLocked] = useState(false);
+  // Guards concurrent authenticateAsync calls — the auto-prompt on cover
+  // mount and a manual Unlock tap can otherwise race.
+  const unlockInFlight = useRef(false);
+
+  // App lock: cover on cold start if enabled, re-cover whenever the app goes
+  // to the background (not 'inactive' — that fires for the Face ID sheet
+  // itself, control center, and the share sheet, and would loop the prompt).
+  useEffect(() => {
+    AppLock.isLockEnabled().then(enabled => { if (enabled) setLocked(true); }).catch(() => {});
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'background') {
+        AppLock.isLockEnabled().then(enabled => { if (enabled) setLocked(true); }).catch(() => {});
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
+  const requestUnlock = () => {
+    if (unlockInFlight.current) return;
+    unlockInFlight.current = true;
+    AppLock.authenticate()
+      .then(ok => { if (ok) setLocked(false); })
+      .catch(() => {})
+      .finally(() => { unlockInFlight.current = false; });
+  };
 
   // Satoshi is loaded at runtime via expo-font so the app runs in Expo Go with
   // no native font linking. If loading fails we proceed anyway (system font).
@@ -81,6 +109,7 @@ const AppInner: React.FC = () => {
             <Stack.Screen name="Chat" component={ChatScreen} />
           </Stack.Navigator>
         </NavigationContainer>
+        {locked && <LockScreen onRequestUnlock={requestUnlock} />}
       </GestureHandlerRootView>
     </ErrorBoundary>
   );

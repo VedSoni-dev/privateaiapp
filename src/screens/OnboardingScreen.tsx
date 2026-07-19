@@ -49,8 +49,8 @@ const getSlides = (colors: AppColorsType) => [
     features: [
       { icon: '+', text: 'No account or sign-in needed' },
       { icon: '+', text: 'Chat history is stored on this device' },
+      { icon: '+', text: 'Face ID lock and ghost chats that never save' },
       { icon: '+', text: 'Replies run through confidential cloud inference' },
-      { icon: '+', text: 'Web search can be turned on or off anytime' },
       { icon: '+', text: 'No analytics or ad tracking' },
     ],
     accent: colors.accentGreen,

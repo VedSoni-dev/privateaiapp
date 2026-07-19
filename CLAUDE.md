@@ -118,7 +118,14 @@ on markdown code blocks, chat session rename/delete (long-press in sidebar,
 `ChatStorage.renameSession`/`deleteSession`), branded share-card images
 (long-press an answer → "Share as Image" → `ShareCardModal.tsx` renders a
 fixed-brand card, `react-native-view-shot` captures it, `expo-sharing` opens
-the share sheet — both bundled in Expo Go; falls back to plain-text share).
+the share sheet — both bundled in Expo Go; falls back to plain-text share),
+privacy trifecta (`AppLockService.ts` Face ID app lock — opt-in Settings
+toggle, `LockScreen.tsx` cover in App.tsx, locks on background not inactive,
+fail-open if biometrics unavailable, disabling the lock re-authenticates
+first; ghost chats — 👻 row in Settings, `ghostMode` in ChatScreen skips
+session save AND memory learning, header badge shows "not saved"; panic
+wipe — "Erase everything" clears chats/memory/suggestions but keeps
+device_id (wiping it = fresh-quota loophole), usage, theme, lock setting).
 
 Open, in priority order (full step-by-step: **LAUNCH.md**):
 1. **Real IAP — ALL code is done, config is not**: `PurchaseService.ts`
