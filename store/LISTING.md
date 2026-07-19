@@ -74,7 +74,7 @@ share cards, dark mode, and 20 free messages every day.
 ```
 No account or login is required — the app works immediately on first launch.
 
-Free tier: 20 messages per day per device. "Pro" ($20.00/month auto-renewing
+Free tier: 20 messages per day per device. "Pro" ($19.99/month auto-renewing
 subscription via StoreKit/RevenueCat) removes the daily cap. The paywall
 appears when the cap is reached or via "Upgrade".
 
