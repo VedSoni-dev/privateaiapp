@@ -65,16 +65,6 @@ struct SettingsView: View {
                         }
                     }
                     .accessibilityLabel("Appearance")
-
-                    Toggle(isOn: $app.chat.webEnabled) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Web search")
-                            Text("Only the query leaves your phone when search runs.")
-                                .font(.caption)
-                                .foregroundStyle(colors.textMuted)
-                        }
-                    }
-                    .accessibilityLabel("Web search")
                 }
 
                 Section("Privacy") {

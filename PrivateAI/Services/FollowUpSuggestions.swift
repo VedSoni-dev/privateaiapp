@@ -1,6 +1,6 @@
 import Foundation
 
-/// Siri-style next-step prompts under an assistant reply.
+/// Siri-style next-step prompts under an assistant reply — topic + memory aware.
 enum FollowUpSuggestions {
     struct Chip: Identifiable, Hashable {
         let id: String
@@ -9,7 +9,12 @@ enum FollowUpSuggestions {
         let systemImage: String
     }
 
-    static func chips(for answer: String, question: String = "") -> [Chip] {
+    @MainActor
+    static func chips(
+        for answer: String,
+        question: String = "",
+        memory: MemoryStore? = nil
+    ) -> [Chip] {
         var chips: [Chip] = [
             Chip(
                 id: "deeper",
@@ -29,6 +34,12 @@ enum FollowUpSuggestions {
                 prompt: "Give 2–3 concrete examples for that.",
                 systemImage: "list.bullet.rectangle"
             ),
+            Chip(
+                id: "act",
+                title: "Make a plan",
+                prompt: "Turn that into a short action plan I can do this week.",
+                systemImage: "checklist"
+            ),
         ]
 
         let lower = (answer + " " + question).lowercased()
@@ -45,25 +56,15 @@ enum FollowUpSuggestions {
             )
         }
 
-        if lower.contains("how") || lower.contains("step") || lower.contains("plan") {
-            chips.append(
+        if lower.contains("code") || lower.contains("swift") || lower.contains("api") || lower.contains("```") {
+            chips.insert(
                 Chip(
-                    id: "steps",
-                    title: "Step-by-step",
-                    prompt: "Break that into a simple step-by-step plan.",
-                    systemImage: "checklist"
-                )
-            )
-        }
-
-        if lower.contains("code") || lower.contains("swift") || lower.contains("api") {
-            chips.append(
-                Chip(
-                    id: "eli5",
-                    title: "Explain simply",
-                    prompt: "Explain that like I’m new to the topic.",
-                    systemImage: "lightbulb"
-                )
+                    id: "fix",
+                    title: "Add tests",
+                    prompt: "Add a few focused tests or edge cases for that code.",
+                    systemImage: "checkmark.seal"
+                ),
+                at: 0
             )
         }
 
@@ -78,7 +79,19 @@ enum FollowUpSuggestions {
             )
         }
 
-        // Dedupe by id, keep first 4.
+        if let memory {
+            for fact in memory.relevantFacts(for: question + " " + answer, limit: 2, markUsed: false) {
+                chips.append(
+                    Chip(
+                        id: "mem-\(fact.id.uuidString)",
+                        title: "For me",
+                        prompt: "Adapt that to me specifically — keep this in mind: \(fact.text)",
+                        systemImage: fact.category.systemImage
+                    )
+                )
+            }
+        }
+
         var seen = Set<String>()
         return chips.filter { seen.insert($0.id).inserted }.prefix(4).map { $0 }
     }

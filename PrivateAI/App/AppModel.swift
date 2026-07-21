@@ -13,6 +13,7 @@ final class AppModel {
     var lock: AppLockStore
     var purchases: PurchaseStore
     var speech: SpeechService
+    var suggestions: SuggestionStore
 
     let deviceId: String
 
@@ -25,10 +26,12 @@ final class AppModel {
         self.lock = AppLockStore()
         self.purchases = PurchaseStore()
         self.speech = SpeechService()
+        self.suggestions = SuggestionStore()
         self.hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "onboarding_done")
 
         purchases.start(deviceId: deviceId, usage: usage)
         Task { await usage.refreshFromServer() }
+        suggestions.refresh(memory: memory, chat: chat, deviceId: deviceId)
     }
 
     func completeOnboarding() {

@@ -128,7 +128,7 @@ final class MemoryStore {
     }
 
     /// Ranked memory for a turn — relevance + pin + recency.
-    func relevantFacts(for context: String, limit: Int = 12) -> [Fact] {
+    func relevantFacts(for context: String, limit: Int = 12, markUsed: Bool = true) -> [Fact] {
         let ctx = tokenSet(context)
         let scored: [(Fact, Double)] = facts.map { fact in
             let overlap = Double(tokenSet(fact.text).intersection(ctx).count)
@@ -150,12 +150,14 @@ final class MemoryStore {
         .filter { $0.1 > 0.4 || $0.0.pinned }
 
         let ranked = scored.sorted { $0.1 > $1.1 }.prefix(limit).map(\.0)
-        for fact in ranked {
-            if let i = facts.firstIndex(where: { $0.id == fact.id }) {
-                facts[i].lastUsedAt = .now
+        if markUsed {
+            for fact in ranked {
+                if let i = facts.firstIndex(where: { $0.id == fact.id }) {
+                    facts[i].lastUsedAt = .now
+                }
             }
+            if !ranked.isEmpty { save() }
         }
-        if !ranked.isEmpty { save() }
         return ranked
     }
 

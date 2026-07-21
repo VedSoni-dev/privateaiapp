@@ -5,11 +5,9 @@ struct ComposerBar: View {
     @Binding var input: String
     var inputFocused: FocusState<Bool>.Binding
     let colors: AppColors
-    let webEnabled: Bool
     let isGenerating: Bool
     let isPro: Bool
     let remaining: Int
-    let onToggleWeb: (Bool) -> Void
     let onSend: () -> Void
     let onStop: () -> Void
     let onUpgrade: () -> Void
@@ -20,8 +18,6 @@ struct ComposerBar: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            modePicker
-
             HStack(alignment: .bottom, spacing: 10) {
                 TextField("Ask privately…", text: $input, axis: .vertical)
                     .textFieldStyle(.plain)
@@ -45,53 +41,6 @@ struct ComposerBar: View {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .stroke(colors.border.opacity(0.45), lineWidth: 0.5)
         }
-    }
-
-    private var modePicker: some View {
-        HStack(spacing: 6) {
-            modeChip(
-                title: "Private",
-                selected: !webEnabled,
-                accessibilityLabel: "Private mode, no web search"
-            ) {
-                onToggleWeb(false)
-            }
-            modeChip(
-                title: "Web",
-                selected: webEnabled,
-                accessibilityLabel: "Web mode, searches the web when helpful"
-            ) {
-                onToggleWeb(true)
-            }
-            Spacer(minLength: 0)
-        }
-    }
-
-    private func modeChip(
-        title: String,
-        selected: Bool,
-        accessibilityLabel: String,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(selected ? colors.accent : colors.textSecondary)
-                .padding(.horizontal, 14)
-                .frame(minHeight: 44)
-                .background(
-                    selected ? colors.accent.opacity(0.14) : colors.card.opacity(0.55),
-                    in: Capsule()
-                )
-                .overlay {
-                    Capsule()
-                        .stroke(selected ? colors.accent.opacity(0.35) : colors.border.opacity(0.5), lineWidth: 1)
-                }
-                .contentShape(Capsule())
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     @ViewBuilder
@@ -139,7 +88,7 @@ struct ComposerBar: View {
                 .accessibilityLabel("Upgrade to Pro")
             }
             Spacer(minLength: 8)
-            Text("AI can make mistakes")
+            Text("Private · AI can make mistakes")
                 .font(.caption2)
                 .foregroundStyle(colors.textMuted)
         }
@@ -163,7 +112,6 @@ private struct ComposerBarPreviewHost: View {
     @State private var input = ""
     @FocusState private var focused: Bool
     var isGenerating = false
-    var webEnabled = false
     var isPro = false
     var remaining = 8
     var colors: AppColors = .light
@@ -173,11 +121,9 @@ private struct ComposerBarPreviewHost: View {
             input: $input,
             inputFocused: $focused,
             colors: colors,
-            webEnabled: webEnabled,
             isGenerating: isGenerating,
             isPro: isPro,
             remaining: remaining,
-            onToggleWeb: { _ in },
             onSend: {},
             onStop: {},
             onUpgrade: {}
@@ -192,7 +138,7 @@ private struct ComposerBarPreviewHost: View {
 }
 
 #Preview("Generating") {
-    ComposerBarPreviewHost(isGenerating: true, webEnabled: true, isPro: true, remaining: 0)
+    ComposerBarPreviewHost(isGenerating: true, isPro: true, remaining: 0)
 }
 
 #Preview("Dark") {

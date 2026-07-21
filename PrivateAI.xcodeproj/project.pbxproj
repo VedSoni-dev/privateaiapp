@@ -43,6 +43,8 @@
 		A353709438491224067D3507 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D924CF715112115A188513C4 /* Assets.xcassets */; };
 		C0D763FFC862579F99D95BAA /* ShareCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E16638435749AB650E2ABC82 /* ShareCardView.swift */; };
 		C468B60F99B2BFAEDD4C8B49 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = 5D04A33BC8A59D3C516189C2 /* RevenueCat */; };
+		D18A41D04F5FD7EB882F24D0 /* SuggestionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2571B472AA59D1F0D24C2143 /* SuggestionStore.swift */; };
+		D217577AF8F45F9F961B922C /* MarkdownMessageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CE858F6AC0E479BCF152B5A /* MarkdownMessageView.swift */; };
 		DBEA5E863883885BAF3EC4F5 /* ChatModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = D84D274AB51816E1B5A03116 /* ChatModels.swift */; };
 		DC62E75DD4928D1D2D886A6C /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A86A95B9B99ABE7ABB9FC20 /* PaywallView.swift */; };
 		DDA1B9EE85DEE153B9F001EA /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FC70214413B6397967023534 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -91,6 +93,7 @@
 		105AB00C808C27F83AB5BF30 /* PrivateAIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivateAIApp.swift; sourceTree = "<group>"; };
 		1AEA5BCC4EBC21A1D0182738 /* MemoryLearning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryLearning.swift; sourceTree = "<group>"; };
 		22FD1B0CB1ADFF69AFBE38C5 /* icon-1024.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-1024.png"; sourceTree = "<group>"; };
+		2571B472AA59D1F0D24C2143 /* SuggestionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuggestionStore.swift; sourceTree = "<group>"; };
 		25E984E893C3BF92D623A17E /* Legal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Legal.swift; sourceTree = "<group>"; };
 		2F222E783F255FB92730AF15 /* PrivateAI.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = PrivateAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3639AA3D99686E2CD65859BB /* SpeechService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechService.swift; sourceTree = "<group>"; };
@@ -108,6 +111,7 @@
 		661230342E3003C2F1967297 /* PrivateAI.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PrivateAI.entitlements; sourceTree = "<group>"; };
 		670C224BCD6815A25DFC13BF /* ComposerBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerBar.swift; sourceTree = "<group>"; };
 		684FA882C7145B4453837208 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		6CE858F6AC0E479BCF152B5A /* MarkdownMessageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownMessageView.swift; sourceTree = "<group>"; };
 		7506B69DD4FA545314155839 /* MemoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryStore.swift; sourceTree = "<group>"; };
 		9754DC1EBC27DDC167A2E57A /* AnswerLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnswerLiveActivity.swift; sourceTree = "<group>"; };
 		B1ED6E177AAEF0E40A091E34 /* AppLockStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockStore.swift; sourceTree = "<group>"; };
@@ -149,6 +153,7 @@
 			children = (
 				FC8A0CB2A23C9E291D8C64F9 /* ChatView.swift */,
 				670C224BCD6815A25DFC13BF /* ComposerBar.swift */,
+				6CE858F6AC0E479BCF152B5A /* MarkdownMessageView.swift */,
 				4C403A30F3A1501C8B3D0EDE /* MessageBubble.swift */,
 				53E235897B0C34D1A74B4AD8 /* ThinkingStatusView.swift */,
 			);
@@ -237,6 +242,7 @@
 				7506B69DD4FA545314155839 /* MemoryStore.swift */,
 				50AEBB99336DC2E4D3277591 /* PurchaseStore.swift */,
 				3639AA3D99686E2CD65859BB /* SpeechService.swift */,
+				2571B472AA59D1F0D24C2143 /* SuggestionStore.swift */,
 				F142C15404275BD333B83121 /* UsageStore.swift */,
 				BE2BAD1C9A65961FF8557EE9 /* WebSearchService.swift */,
 			);
@@ -464,6 +470,7 @@
 				A019859D6A40903CC637B996 /* Legal.swift in Sources */,
 				31E418432027E264C1034CFC /* LiveActivityController.swift in Sources */,
 				1F68CAD3FF67F87645A0D837 /* LockScreenView.swift in Sources */,
+				D217577AF8F45F9F961B922C /* MarkdownMessageView.swift in Sources */,
 				8D0B54BA79907CFBB0EB248B /* MemoryLearning.swift in Sources */,
 				1FA9F52B1BF5A0B18564D3D0 /* MemoryStore.swift in Sources */,
 				9156682BBE825C7B93D3D3FE /* MessageBubble.swift in Sources */,
@@ -475,6 +482,7 @@
 				F9EE0598E2BC19B1D2D9AAEA /* SettingsView.swift in Sources */,
 				C0D763FFC862579F99D95BAA /* ShareCardView.swift in Sources */,
 				27DC4A4F7C8C1DDD84ABCC3B /* SpeechService.swift in Sources */,
+				D18A41D04F5FD7EB882F24D0 /* SuggestionStore.swift in Sources */,
 				8A6E299869FEFCBEB815ED6F /* ThemeStore.swift in Sources */,
 				8FEF945D1DF87B6231E6CDF3 /* ThinkingStatusView.swift in Sources */,
 				2AE4D37B35535C7D4B75679E /* UsageStore.swift in Sources */,

@@ -9,7 +9,6 @@ final class ChatStore {
     var isGenerating = false
     var streamingText = ""
     var statusText: String?
-    var webEnabled = true
     var errorMessage: String?
     var pendingToolCalls: [ToolCallInfo] = []
     var shareTarget: ShareCardTarget?
@@ -126,7 +125,6 @@ final class ChatStore {
                 let prepared = await AgentService.prepareTurn(
                     history: Array(history),
                     userText: trimmed,
-                    webEnabled: webEnabled,
                     memoryBlock: memBlock,
                     deviceId: deviceId,
                     onStatus: { [weak self] status in

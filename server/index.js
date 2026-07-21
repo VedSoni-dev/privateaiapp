@@ -24,7 +24,7 @@ const MAX_MESSAGES = Number(process.env.MAX_MESSAGES || 40);
 const MAX_MESSAGE_CHARS = Number(process.env.MAX_MESSAGE_CHARS || 16_000);
 const MAX_TOTAL_CHARS = Number(process.env.MAX_TOTAL_CHARS || 80_000);
 const MAX_TOKENS = Number(process.env.MAX_TOKENS || 1800);
-const FREE_DAILY_LIMIT = Number(process.env.FREE_DAILY_LIMIT || 20);
+const FREE_DAILY_LIMIT = Number(process.env.FREE_DAILY_LIMIT || 10);
 // Backstop across ALL /v1/chat calls (decision passes, memory extraction,
 // retries). A normal message costs 2-3 calls, so 8x leaves headroom while
 // still capping a client that scripts non-streaming calls all day.

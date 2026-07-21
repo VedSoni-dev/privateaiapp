@@ -13,12 +13,12 @@ struct OnboardingView: View {
         ),
         (
             "Ask anything",
-            "Streaming answers for writing, code, advice, and more — with optional web search when you need live info.",
+            "Streaming answers for writing, code, advice, and more — always private, always ready.",
             "bubble.left.and.bubble.right.fill"
         ),
         (
             "You stay in control",
-            "Memory you can see, pin, and erase. Face ID lock when you want it. 20 free messages every day.",
+            "Memory you can see, pin, and erase. Face ID lock when you want it. 10 free messages every day.",
             "hand.raised.fill"
         ),
     ]

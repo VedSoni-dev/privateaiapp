@@ -44,6 +44,20 @@ struct ChatView: View {
                     else { return }
                     app.speech.speak(last.content, messageId: last.id)
                 }
+                .onAppear {
+                    app.suggestions.refresh(
+                        memory: app.memory,
+                        chat: app.chat,
+                        deviceId: app.deviceId
+                    )
+                }
+                .onChange(of: app.memory.facts.count) { _, _ in
+                    app.suggestions.refresh(
+                        memory: app.memory,
+                        chat: app.chat,
+                        deviceId: app.deviceId
+                    )
+                }
         }
     }
 
@@ -114,11 +128,9 @@ struct ChatView: View {
             input: $input,
             inputFocused: $inputFocused,
             colors: colors,
-            webEnabled: app.chat.webEnabled,
             isGenerating: app.chat.isGenerating,
             isPro: app.usage.isPro,
             remaining: app.usage.remaining,
-            onToggleWeb: { app.chat.webEnabled = $0 },
             onSend: send,
             onStop: {
                 Haptics.light()
@@ -195,15 +207,14 @@ struct ChatView: View {
                     .font(.largeTitle.bold())
                     .foregroundStyle(colors.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
-                Text("Confidential-compute answers. Memory you control. Speak replies or ask Siri.")
+                Text("Confidential-compute answers. Memory you control. Always private.")
                     .font(.subheadline)
                     .foregroundStyle(colors.textSecondary)
             }
             VStack(spacing: 8) {
-                suggestion("What’s the latest on AI regulation?", icon: "globe", colors: colors)
-                suggestion("Help me write a careful email", icon: "envelope", colors: colors)
-                suggestion("Explain a concept simply", icon: "lightbulb", colors: colors)
-                suggestion("Plan my week in three priorities", icon: "calendar", colors: colors)
+                ForEach(app.suggestions.chips) { chip in
+                    suggestion(chip.text, icon: chip.icon, colors: colors)
+                }
             }
         }
         .padding(.top, 28)

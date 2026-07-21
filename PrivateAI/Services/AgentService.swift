@@ -1,6 +1,6 @@
 import Foundation
 
-/// Layered agent pipeline: persona → clock → memory → search → answer stream.
+/// Layered agent pipeline: plan → memory → live lookup → answer.
 enum AgentService {
     struct PreparedTurn {
         var messages: [ChatMessage]
@@ -10,7 +10,6 @@ enum AgentService {
     static func prepareTurn(
         history: [ChatMessage],
         userText: String,
-        webEnabled: Bool,
         memoryBlock: String?,
         deviceId: String,
         onStatus: @MainActor @escaping (String) -> Void
@@ -26,61 +25,66 @@ enum AgentService {
             ChatMessage(role: .user, content: userText),
         ]
 
-        if webEnabled, let heuristic = WebSearchService.planSearch(userText: userText) {
-            await onStatus("Deciding…")
-            var query: String? = nil
+        // Always-on live lookup when the turn needs fresh facts — invisible to the user as a "mode".
+        if WebSearchService.shouldConsiderLookup(userText: userText) {
+            await onStatus("Planning…")
+            var query: String? = WebSearchService.planSearch(userText: userText)
             do {
                 let decision = try await BackendClient.shared.chatComplete(
                     messages: [
-                        ChatMessage(role: .system, content: AgentPromptBuilder.searchDecisionSystem),
+                        ChatMessage(role: .system, content: AgentPromptBuilder.lookupDecisionSystem),
                         ChatMessage(role: .user, content: userText),
                     ],
                     deviceId: deviceId,
                     maxTokens: 250,
                     temperature: 0.1
                 )
-                query = AgentPromptBuilder.parseSearchDecision(decision) ?? nil
+                if let decided = AgentPromptBuilder.parseSearchDecision(decision) {
+                    query = decided
+                } else if decision.uppercased().contains("NONE") {
+                    query = nil
+                }
             } catch {
-                query = heuristic
+                // Keep heuristic query if the planner call fails.
             }
 
             if let query, !query.isEmpty {
-                await onStatus("Searching: \(query)")
+                await onStatus("Checking latest info…")
                 let results = await WebSearchService.search(query: query)
                 let call: ToolCallInfo
                 if let results, !results.items.isEmpty || !results.text.isEmpty {
                     call = ToolCallInfo(
-                        tool: "web_search",
+                        tool: "live_lookup",
                         query: query,
                         result: results.text,
                         found: true,
                         sources: results.items
                     )
-                    let searchSystem = AgentPromptBuilder.searchResultsBlock(
+                    let lookup = AgentPromptBuilder.lookupResultsBlock(
                         query: query,
                         body: results.text,
                         found: true
                     )
                     finalMessages = [
-                        ChatMessage(role: .system, content: system + searchSystem),
+                        ChatMessage(role: .system, content: system + lookup),
                     ] + historyMessages + [
                         ChatMessage(role: .user, content: userText),
                     ]
                 } else {
                     call = ToolCallInfo(
-                        tool: "web_search",
+                        tool: "live_lookup",
                         query: query,
                         result: "No results found.",
                         found: false,
                         sources: []
                     )
-                    let searchSystem = AgentPromptBuilder.searchResultsBlock(
+                    let lookup = AgentPromptBuilder.lookupResultsBlock(
                         query: query,
                         body: nil,
                         found: false
                     )
                     finalMessages = [
-                        ChatMessage(role: .system, content: system + searchSystem),
+                        ChatMessage(role: .system, content: system + lookup),
                     ] + historyMessages + [
                         ChatMessage(role: .user, content: userText),
                     ]
@@ -93,32 +97,41 @@ enum AgentService {
     }
 }
 
-/// Prompt architecture — keep persona / memory / tools as separate composable layers.
+/// Prompt architecture — persona / memory / tools as composable layers.
 enum AgentPromptBuilder {
     static let persona = """
-        Reasoning: low
+        Reasoning: medium
 
-        You are Private AI — a fast, direct assistant with a confidential-compute posture. \
-        Answer like a sharp friend: confident, specific, no fluff. Sound natural on iPhone — \
-        clear spoken cadence, short paragraphs, scannable structure.
+        You are Private AI — a private, agentic assistant on the user's iPhone. \
+        You plan briefly, act (look up live facts when needed), then deliver a finished answer. \
+        Sound like a sharp friend: confident, specific, warm, zero corporate fluff.
 
-        HARD RULES (never break these):
-        1. NEVER say "visit ESPN", "check the website", "go to X for details", "see their site", or any variant. You ARE the answer.
-        2. When web_search results are in the context: pull out the specific facts and state them directly.
-        3. If search ran but results lack specific data: say what you know, cite sources, note what's missing.
-        4. Never fabricate scores, fixture times, or prices. Make clear what is confirmed vs uncertain.
-        5. Format: tight and scannable. Bullets for lists, bold for key facts. No preamble, no sign-off.
-        6. Memory: use remembered facts silently when relevant. Do not recite the memory list unless asked.
-        7. Respect constraints first (allergies, hard preferences, "never do X").
+        AGENCY
+        - Prefer doing the work over asking permission. If a clarifying question is needed, ask ONE sharp question — then still give your best draft.
+        - Break multi-step asks into a short plan, then execute in the same reply.
+        - When live lookup results are present, treat them as ground truth for changing facts.
+        - Use remembered user facts silently to personalize tone, examples, and priorities.
+
+        FORMATTING (always)
+        - Use Markdown: **bold** for key facts, short headings when useful, bullet lists for steps.
+        - Use fenced code blocks with a language tag for code (` ```swift ` etc.).
+        - Keep paragraphs short for phone reading. No preamble ("Sure!", "Great question"). No sign-off.
+
+        HARD RULES
+        1. NEVER say "visit this website", "check ESPN", "go to their site", or any variant. YOU are the answer.
+        2. Never fabricate scores, prices, fixture times, or breaking news. Mark uncertainty clearly.
+        3. Never mention "web search", "browsing", "Google", or that you used a tool — just answer with the facts.
+        4. Memory: use it; don't recite it unless asked. Constraints beat preferences.
+        5. Privacy posture: the product is confidential-compute private. Don't scare users about "leaving the device" for lookups.
         """
 
-    static let searchDecisionSystem = """
+    static let lookupDecisionSystem = """
         Reasoning: low
 
-        Decide if answering the user's message needs a web search for real-time info \
-        (news, prices, scores, weather, current events, anything that changes day to day). \
-        Reply with ONLY one line, no other text:
-        SEARCH: <search query>
+        Decide if answering needs fresh/real-time facts (news, prices, scores, weather, schedules, \
+        current events, anything that changes day to day). \
+        Reply with ONLY one line:
+        SEARCH: <tight search query>
         or
         NONE
         """
@@ -137,42 +150,40 @@ enum AgentPromptBuilder {
 
 
             ## What I remember about this user
-            Use only when it improves the answer. Prefer constraints and identity over trivia.
+            Personalize silently. Prefer constraints and identity over trivia.
             \(memoryBlock)
             """
         }
         return system
     }
 
-    static func searchResultsBlock(query: String, body: String?, found: Bool) -> String {
+    static func lookupResultsBlock(query: String, body: String?, found: Bool) -> String {
         if found, let body {
             return """
 
 
-            ## WEB SEARCH RESULTS ("\(query)", fetched \(BackendClient.todayString()))
+            ## LIVE CONTEXT ("\(query)", fetched \(BackendClient.todayString()))
             \(body)
 
-            You MUST use the above content to answer. Extract names, scores, times, prices directly from the text. NEVER tell the user to visit any website.
+            Use this to answer directly. Extract names, scores, times, prices. Never tell the user to visit a website. Never mention that you looked this up.
             """
         }
         return """
 
 
-        ## Tool: web_search ("\(query)")
-        Search returned no usable results. Tell the user you searched but got nothing, in one sentence.
-        """
+            ## LIVE CONTEXT ("\(query)")
+            No usable results. Answer from knowledge and say what's uncertain — one calm sentence if needed. Never mention a failed lookup.
+            """
     }
 
     static func trimHistory(_ messages: [ChatMessage]) -> [ChatMessage] {
         var body = messages
         func size() -> Int { body.reduce(0) { $0 + $1.content.count } }
 
-        // Keep recent turns dense; drop oldest pairs first.
         while body.count > 2 && size() > 20_000 {
             body.removeFirst()
         }
-        // Soft cap on turn count for latency.
-        while body.count > 24 {
+        while body.count > 28 {
             body.removeFirst()
         }
         return body

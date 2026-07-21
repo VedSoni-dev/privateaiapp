@@ -26,21 +26,12 @@ struct MessageBubble: View {
                             .font(.body)
                             .foregroundStyle(colors.textPrimary)
                             .multilineTextAlignment(.trailing)
-                    } else if let attributed = try? AttributedString(
-                        markdown: message.content,
-                        options: AttributedString.MarkdownParsingOptions(
-                            interpretedSyntax: .inlineOnlyPreservingWhitespace
-                        )
-                    ) {
-                        Text(attributed)
-                            .font(.body)
-                            .foregroundStyle(message.isError ? colors.error : colors.textPrimary)
-                            .multilineTextAlignment(.leading)
                     } else {
-                        Text(message.content)
-                            .font(.body)
-                            .foregroundStyle(message.isError ? colors.error : colors.textPrimary)
-                            .multilineTextAlignment(.leading)
+                        MarkdownMessageView(
+                            text: message.content,
+                            colors: colors,
+                            isError: message.isError
+                        )
                     }
                 }
                 .textSelection(.enabled)
@@ -113,7 +104,8 @@ struct MessageBubble: View {
                     FollowUpChipRow(
                         chips: FollowUpSuggestions.chips(
                             for: message.content,
-                            question: previousUserText
+                            question: previousUserText,
+                            memory: app.memory
                         ),
                         colors: colors,
                         onSelect: { prompt in
@@ -302,11 +294,13 @@ private struct FlowTools: View {
         HStack(spacing: 6) {
             ForEach(toolCalls) { call in
                 Label {
-                    Text(call.tool == "web_search"
-                         ? (call.found ? "\(call.sources.count) sources" : "No results")
+                    Text(call.tool == "live_lookup" || call.tool == "web_search"
+                         ? (call.found ? "\(call.sources.count) sources" : "Checked quietly")
                          : call.tool)
                 } icon: {
-                    Image(systemName: call.tool == "web_search" ? "globe" : "wrench.and.screwdriver")
+                    Image(systemName: (call.tool == "live_lookup" || call.tool == "web_search")
+                          ? "sparkles"
+                          : "wrench.and.screwdriver")
                 }
                 .font(.caption2.weight(.semibold))
                 .padding(.horizontal, 8)

@@ -57,6 +57,21 @@ enum WebSearchService {
         }
     }
 
+    /// True when a turn might need live facts (agent decides SEARCH vs NONE).
+    static func shouldConsiderLookup(userText: String) -> Bool {
+        let q = userText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard q.count >= 8 else { return false }
+        let range = NSRange(q.startIndex..., in: q)
+        let words = q.split(separator: " ").count
+        if words <= 6, !q.contains("?"), conversational.firstMatch(in: q, range: range) != nil {
+            return false
+        }
+        // Questions, longer asks, or recency cues → let the planner decide.
+        if q.contains("?") { return true }
+        if words >= 8 { return true }
+        return planSearch(userText: q) != nil
+    }
+
     /// Local recency heuristic — returns a query if search is worth trying.
     static func planSearch(userText: String) -> String? {
         let q = userText.trimmingCharacters(in: .whitespacesAndNewlines)
