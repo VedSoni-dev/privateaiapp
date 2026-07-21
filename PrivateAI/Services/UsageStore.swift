@@ -56,6 +56,8 @@ final class UsageStore {
             date = BackendClient.todayString()
         }
         isPro = json["isPro"] as? Bool ?? false
+        AppGroupStore.isProHint = isPro
+        AppGroupStore.remainingHint = remaining
     }
 
     private func saveLocal() {
@@ -67,5 +69,7 @@ final class UsageStore {
         if let data = try? JSONSerialization.data(withJSONObject: payload) {
             UserDefaults.standard.set(data, forKey: defaultsKey)
         }
+        AppGroupStore.isProHint = isPro
+        AppGroupStore.remainingHint = remaining
     }
 }

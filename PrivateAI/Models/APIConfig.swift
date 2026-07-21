@@ -1,9 +1,9 @@
 import Foundation
 
 enum APIConfig {
-    static let backendURL = URL(string: "https://private-ai-backend.onrender.com")!
+    static let backendURL = NetworkConfig.backendURL
     static let searchURL = URL(string: "https://private-ai-search.vedantn06soni.workers.dev")!
-    static let freeDailyLimit = 10
+    static let freeDailyLimit = NetworkConfig.freeDailyLimit
 }
 
 enum BackendError: LocalizedError {

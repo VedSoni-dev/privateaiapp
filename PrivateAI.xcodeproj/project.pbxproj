@@ -13,23 +13,34 @@
 		0FA9CC999CE60261DC2A7AD8 /* BrandMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6FA868F2100C51A44FDE700 /* BrandMark.swift */; };
 		110254A44E2727467F628A86 /* WebSearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE2BAD1C9A65961FF8557EE9 /* WebSearchService.swift */; };
 		147FA9A3B81610DEBC922263 /* PurchaseStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50AEBB99336DC2E4D3277591 /* PurchaseStore.swift */; };
+		166E19F3A26C0AE7563EB913 /* ChatExportService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58AAB3F0F4EE4773234DA2B7 /* ChatExportService.swift */; };
 		1F68CAD3FF67F87645A0D837 /* LockScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F54B7E33827ECAD15D55A423 /* LockScreenView.swift */; };
 		1FA9F52B1BF5A0B18564D3D0 /* MemoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7506B69DD4FA545314155839 /* MemoryStore.swift */; };
 		27DC4A4F7C8C1DDD84ABCC3B /* SpeechService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3639AA3D99686E2CD65859BB /* SpeechService.swift */; };
 		29C67DFB6D02539013EF6244 /* AskPrivateAIIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9BAB4A5F43B6532F4FCCC01 /* AskPrivateAIIntent.swift */; };
 		2AE4D37B35535C7D4B75679E /* UsageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F142C15404275BD333B83121 /* UsageStore.swift */; };
+		2B7AFA3D6D5702A3B8D7CAA7 /* NetworkConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 282E6AE0E5C3A437C27EA966 /* NetworkConfig.swift */; };
+		2ECE1FEBEB9193C72DED78F5 /* ExtensionChatClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B050696718DAA2B848591FEE /* ExtensionChatClient.swift */; };
+		3053E35FE1DCD5A7D2D787BB /* ExtensionChatClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B050696718DAA2B848591FEE /* ExtensionChatClient.swift */; };
 		31E418432027E264C1034CFC /* LiveActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6DB91892B7E996953DED827 /* LiveActivityController.swift */; };
+		381BBD8E95BDBDE8259542A9 /* AnswerActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C05D9CACA5EDFE3F2386AD2F /* AnswerActivityAttributes.swift */; };
 		3BC762539CCA4F989358A051 /* AnswerActivityAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C05D9CACA5EDFE3F2386AD2F /* AnswerActivityAttributes.swift */; };
 		3D1DA86F903AE439E7BEEE45 /* BackendClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = F70F0D06B9B6132B26797D41 /* BackendClient.swift */; };
 		4741C3B33363890CEEE0D314 /* icon-1024.png in Resources */ = {isa = PBXBuildFile; fileRef = 22FD1B0CB1ADFF69AFBE38C5 /* icon-1024.png */; };
+		482BA3841856774D84FC91BB /* Messages.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 96625F7516B110AD9527810D /* Messages.framework */; };
 		4AB54A57843AFBB797969D7C /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44A8C4703D47B815632C0C50 /* AppModel.swift */; };
+		4D7C32D29A48F86BCCE44B1A /* OnDeviceAssist.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91113E85D6BDC12FA43E78A1 /* OnDeviceAssist.swift */; };
 		4F03DE7EBF41442DEBDE85F7 /* PrivateAIWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C52742760BEA2E842757C089 /* PrivateAIWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		4FEA2B3E8D69CA78289E7BED /* Haptics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 083378EBC19A567733C01C2C /* Haptics.swift */; };
+		5222471EFD1556BB45A216E8 /* MessagesExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FBB530AB80FD761BFCBFB3D8 /* MessagesExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		52A41D3162EED09096E679B0 /* AskPrivateAIWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 542908C7D3573E82688C40C7 /* AskPrivateAIWidget.swift */; };
 		55DEBA34DB2CDC986FD18517 /* AppLockStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1ED6E177AAEF0E40A091E34 /* AppLockStore.swift */; };
 		5CAD2794C48B6388DF229BBF /* AgentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0329BDC308233D0F87EEBB7F /* AgentService.swift */; };
+		602F6099351644ABD758AD7C /* ExtensionChatClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = B050696718DAA2B848591FEE /* ExtensionChatClient.swift */; };
 		60F58D4459E386CFA0A5F0BE /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EB1EDD3366AE8E8C654D421 /* ShareViewController.swift */; };
 		6466E7F62ACF75F09EFB0EA0 /* AnswerLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9754DC1EBC27DDC167A2E57A /* AnswerLiveActivity.swift */; };
 		6ABD2BA621F34C71A54CC445 /* PrivateAIApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 105AB00C808C27F83AB5BF30 /* PrivateAIApp.swift */; };
+		70D5173ECC3482F603B4C43E /* NetworkConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 282E6AE0E5C3A437C27EA966 /* NetworkConfig.swift */; };
 		731548D56F11722D8FE9E4D1 /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC8A0CB2A23C9E291D8C64F9 /* ChatView.swift */; };
 		847E759AA8ABCB4A9E976F92 /* DeviceID.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE0E2780C4E8346A983FD9D2 /* DeviceID.swift */; };
 		872B885EED3B15D6386084CC /* CalendarService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DE2E42BCB7962725C3E002A /* CalendarService.swift */; };
@@ -51,8 +62,12 @@
 		E090CEB1C39E0261E6CFDE54 /* RevenueCatUI in Frameworks */ = {isa = PBXBuildFile; productRef = 5E9E23B5FE0CDF00D65AC45B /* RevenueCatUI */; };
 		E57407FA67EB6887EA52F303 /* FollowUpSuggestions.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCB03206F0A947885B50B975 /* FollowUpSuggestions.swift */; };
 		EE9C0F6A37A14A4E5AF5181B /* ChatStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7CF4A60BDE49651B39406F0 /* ChatStore.swift */; };
+		F1E0634CF292934AC58CC703 /* QuotaNotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A558559AD1209CC01EEE928B /* QuotaNotificationScheduler.swift */; };
+		F2DC5404B4584B475CDEC742 /* NetworkConfig.swift in Sources */ = {isa = PBXBuildFile; fileRef = 282E6AE0E5C3A437C27EA966 /* NetworkConfig.swift */; };
+		F41389147FC89F04D879ED05 /* MessagesRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51308E32DFF6164A52653B18 /* MessagesRootView.swift */; };
 		F66CE64A98038CAE51E39A59 /* AppColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44013F3CAC1233139701B381 /* AppColors.swift */; };
 		F9EE0598E2BC19B1D2D9AAEA /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49371B723555DDF16D5607AD /* SettingsView.swift */; };
+		FD6CEC0B410A9E92A91259DE /* MessagesViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC5B862057692373EA5788E6 /* MessagesViewController.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -70,6 +85,13 @@
 			remoteGlobalIDString = B4AFC620CA8172410CBC6B4C;
 			remoteInfo = PrivateAIWidget;
 		};
+		F382A1EF53480B314E91341D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 5D239704D9F8735A0B001C21 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BAC64681904DC29EA587D0B0;
+			remoteInfo = MessagesExtension;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -81,6 +103,7 @@
 			files = (
 				4F03DE7EBF41442DEBDE85F7 /* PrivateAIWidget.appex in Embed Foundation Extensions */,
 				DDA1B9EE85DEE153B9F001EA /* ShareExtension.appex in Embed Foundation Extensions */,
+				5222471EFD1556BB45A216E8 /* MessagesExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -91,10 +114,12 @@
 		0329BDC308233D0F87EEBB7F /* AgentService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentService.swift; sourceTree = "<group>"; };
 		083378EBC19A567733C01C2C /* Haptics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Haptics.swift; sourceTree = "<group>"; };
 		105AB00C808C27F83AB5BF30 /* PrivateAIApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivateAIApp.swift; sourceTree = "<group>"; };
+		15E24EC388421A858133F92A /* MessagesExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MessagesExtension.entitlements; sourceTree = "<group>"; };
 		1AEA5BCC4EBC21A1D0182738 /* MemoryLearning.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryLearning.swift; sourceTree = "<group>"; };
 		22FD1B0CB1ADFF69AFBE38C5 /* icon-1024.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-1024.png"; sourceTree = "<group>"; };
 		2571B472AA59D1F0D24C2143 /* SuggestionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuggestionStore.swift; sourceTree = "<group>"; };
 		25E984E893C3BF92D623A17E /* Legal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Legal.swift; sourceTree = "<group>"; };
+		282E6AE0E5C3A437C27EA966 /* NetworkConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkConfig.swift; sourceTree = "<group>"; };
 		2F222E783F255FB92730AF15 /* PrivateAI.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = PrivateAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		3639AA3D99686E2CD65859BB /* SpeechService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechService.swift; sourceTree = "<group>"; };
 		44013F3CAC1233139701B381 /* AppColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppColors.swift; sourceTree = "<group>"; };
@@ -104,7 +129,10 @@
 		4C403A30F3A1501C8B3D0EDE /* MessageBubble.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessageBubble.swift; sourceTree = "<group>"; };
 		4EB1EDD3366AE8E8C654D421 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
 		50AEBB99336DC2E4D3277591 /* PurchaseStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurchaseStore.swift; sourceTree = "<group>"; };
+		51308E32DFF6164A52653B18 /* MessagesRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesRootView.swift; sourceTree = "<group>"; };
 		53E235897B0C34D1A74B4AD8 /* ThinkingStatusView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThinkingStatusView.swift; sourceTree = "<group>"; };
+		542908C7D3573E82688C40C7 /* AskPrivateAIWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskPrivateAIWidget.swift; sourceTree = "<group>"; };
+		58AAB3F0F4EE4773234DA2B7 /* ChatExportService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatExportService.swift; sourceTree = "<group>"; };
 		5A11F98D64D3FEB2B3CF3C90 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		5DE2E42BCB7962725C3E002A /* CalendarService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarService.swift; sourceTree = "<group>"; };
 		64C508676BCB9F34D3E68873 /* ThemeStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeStore.swift; sourceTree = "<group>"; };
@@ -113,7 +141,12 @@
 		684FA882C7145B4453837208 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		6CE858F6AC0E479BCF152B5A /* MarkdownMessageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MarkdownMessageView.swift; sourceTree = "<group>"; };
 		7506B69DD4FA545314155839 /* MemoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryStore.swift; sourceTree = "<group>"; };
+		91113E85D6BDC12FA43E78A1 /* OnDeviceAssist.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDeviceAssist.swift; sourceTree = "<group>"; };
+		96625F7516B110AD9527810D /* Messages.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Messages.framework; path = System/Library/Frameworks/Messages.framework; sourceTree = SDKROOT; };
 		9754DC1EBC27DDC167A2E57A /* AnswerLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnswerLiveActivity.swift; sourceTree = "<group>"; };
+		A558559AD1209CC01EEE928B /* QuotaNotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuotaNotificationScheduler.swift; sourceTree = "<group>"; };
+		AC5B862057692373EA5788E6 /* MessagesViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MessagesViewController.swift; sourceTree = "<group>"; };
+		B050696718DAA2B848591FEE /* ExtensionChatClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExtensionChatClient.swift; sourceTree = "<group>"; };
 		B1ED6E177AAEF0E40A091E34 /* AppLockStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockStore.swift; sourceTree = "<group>"; };
 		BCB03206F0A947885B50B975 /* FollowUpSuggestions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowUpSuggestions.swift; sourceTree = "<group>"; };
 		BE2BAD1C9A65961FF8557EE9 /* WebSearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSearchService.swift; sourceTree = "<group>"; };
@@ -121,6 +154,7 @@
 		C52742760BEA2E842757C089 /* PrivateAIWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = PrivateAIWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		C6DB91892B7E996953DED827 /* LiveActivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityController.swift; sourceTree = "<group>"; };
 		C9BAB4A5F43B6532F4FCCC01 /* AskPrivateAIIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskPrivateAIIntent.swift; sourceTree = "<group>"; };
+		CF536E357C75B0421FB021B1 /* PrivateAIWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PrivateAIWidget.entitlements; sourceTree = "<group>"; };
 		D6FA868F2100C51A44FDE700 /* BrandMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandMark.swift; sourceTree = "<group>"; };
 		D7CF4A60BDE49651B39406F0 /* ChatStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatStore.swift; sourceTree = "<group>"; };
 		D84D274AB51816E1B5A03116 /* ChatModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatModels.swift; sourceTree = "<group>"; };
@@ -130,6 +164,7 @@
 		F142C15404275BD333B83121 /* UsageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageStore.swift; sourceTree = "<group>"; };
 		F54B7E33827ECAD15D55A423 /* LockScreenView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LockScreenView.swift; sourceTree = "<group>"; };
 		F70F0D06B9B6132B26797D41 /* BackendClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackendClient.swift; sourceTree = "<group>"; };
+		FBB530AB80FD761BFCBFB3D8 /* MessagesExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = MessagesExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC70214413B6397967023534 /* ShareExtension.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = ShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC8A0CB2A23C9E291D8C64F9 /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		FCB2FAAC8913F360A1CB3768 /* APIConfig.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIConfig.swift; sourceTree = "<group>"; };
@@ -142,6 +177,14 @@
 			files = (
 				C468B60F99B2BFAEDD4C8B49 /* RevenueCat in Frameworks */,
 				E090CEB1C39E0261E6CFDE54 /* RevenueCatUI in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BA2567DD11ABC76A1CB2EA43 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				482BA3841856774D84FC91BB /* Messages.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -168,9 +211,20 @@
 			path = Onboarding;
 			sourceTree = "<group>";
 		};
+		364E273737ABD1B145784397 /* MessagesExtension */ = {
+			isa = PBXGroup;
+			children = (
+				15E24EC388421A858133F92A /* MessagesExtension.entitlements */,
+				51308E32DFF6164A52653B18 /* MessagesRootView.swift */,
+				AC5B862057692373EA5788E6 /* MessagesViewController.swift */,
+			);
+			path = MessagesExtension;
+			sourceTree = "<group>";
+		};
 		61562CC6A7FB5E9D8AFF5CE0 /* Products */ = {
 			isa = PBXGroup;
 			children = (
+				FBB530AB80FD761BFCBFB3D8 /* MessagesExtension.appex */,
 				2F222E783F255FB92730AF15 /* PrivateAI.app */,
 				C52742760BEA2E842757C089 /* PrivateAIWidget.appex */,
 				FC70214413B6397967023534 /* ShareExtension.appex */,
@@ -203,6 +257,8 @@
 			isa = PBXGroup;
 			children = (
 				C05D9CACA5EDFE3F2386AD2F /* AnswerActivityAttributes.swift */,
+				B050696718DAA2B848591FEE /* ExtensionChatClient.swift */,
+				282E6AE0E5C3A437C27EA966 /* NetworkConfig.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -222,6 +278,8 @@
 			isa = PBXGroup;
 			children = (
 				9754DC1EBC27DDC167A2E57A /* AnswerLiveActivity.swift */,
+				542908C7D3573E82688C40C7 /* AskPrivateAIWidget.swift */,
+				CF536E357C75B0421FB021B1 /* PrivateAIWidget.entitlements */,
 			);
 			path = PrivateAIWidget;
 			sourceTree = "<group>";
@@ -233,6 +291,7 @@
 				B1ED6E177AAEF0E40A091E34 /* AppLockStore.swift */,
 				F70F0D06B9B6132B26797D41 /* BackendClient.swift */,
 				5DE2E42BCB7962725C3E002A /* CalendarService.swift */,
+				58AAB3F0F4EE4773234DA2B7 /* ChatExportService.swift */,
 				D7CF4A60BDE49651B39406F0 /* ChatStore.swift */,
 				EE0E2780C4E8346A983FD9D2 /* DeviceID.swift */,
 				BCB03206F0A947885B50B975 /* FollowUpSuggestions.swift */,
@@ -240,7 +299,9 @@
 				C6DB91892B7E996953DED827 /* LiveActivityController.swift */,
 				1AEA5BCC4EBC21A1D0182738 /* MemoryLearning.swift */,
 				7506B69DD4FA545314155839 /* MemoryStore.swift */,
+				91113E85D6BDC12FA43E78A1 /* OnDeviceAssist.swift */,
 				50AEBB99336DC2E4D3277591 /* PurchaseStore.swift */,
+				A558559AD1209CC01EEE928B /* QuotaNotificationScheduler.swift */,
 				3639AA3D99686E2CD65859BB /* SpeechService.swift */,
 				2571B472AA59D1F0D24C2143 /* SuggestionStore.swift */,
 				F142C15404275BD333B83121 /* UsageStore.swift */,
@@ -285,10 +346,12 @@
 		E3FD28D33EA5559A5ABC9FF7 = {
 			isa = PBXGroup;
 			children = (
+				364E273737ABD1B145784397 /* MessagesExtension */,
 				BEF1C4372D9C97CFCE045E60 /* PrivateAI */,
 				ABB3A942B706BF950A2D34F7 /* PrivateAIWidget */,
 				9982F4E25596C5FE06472BE8 /* Shared */,
 				FFA004AC029C68D1B053A0F7 /* ShareExtension */,
+				F977E4A48E29C208DC4C1A09 /* Frameworks */,
 				61562CC6A7FB5E9D8AFF5CE0 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -301,6 +364,14 @@
 				64C508676BCB9F34D3E68873 /* ThemeStore.swift */,
 			);
 			path = Theme;
+			sourceTree = "<group>";
+		};
+		F977E4A48E29C208DC4C1A09 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				96625F7516B110AD9527810D /* Messages.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		FDB583C9FE9C9316BA9E702B /* Settings */ = {
@@ -336,6 +407,7 @@
 			dependencies = (
 				A6EBAD2C0DC9E56F4C904DBB /* PBXTargetDependency */,
 				D3BD3857BA1A638D83DB1834 /* PBXTargetDependency */,
+				3E23C9B8D45109F68929A64F /* PBXTargetDependency */,
 			);
 			name = PrivateAI;
 			packageProductDependencies = (
@@ -380,6 +452,24 @@
 			productReference = C52742760BEA2E842757C089 /* PrivateAIWidget.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
+		BAC64681904DC29EA587D0B0 /* MessagesExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D4B7E1767D980F3F9511F979 /* Build configuration list for PBXNativeTarget "MessagesExtension" */;
+			buildPhases = (
+				6ADC98BBA39280460A01B84F /* Sources */,
+				BA2567DD11ABC76A1CB2EA43 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MessagesExtension;
+			packageProductDependencies = (
+			);
+			productName = MessagesExtension;
+			productReference = FBB530AB80FD761BFCBFB3D8 /* MessagesExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -396,6 +486,9 @@
 						ProvisioningStyle = Automatic;
 					};
 					B4AFC620CA8172410CBC6B4C = {
+						ProvisioningStyle = Automatic;
+					};
+					BAC64681904DC29EA587D0B0 = {
 						ProvisioningStyle = Automatic;
 					};
 				};
@@ -420,6 +513,7 @@
 				92FFB320FDFB491573D84A81 /* PrivateAI */,
 				B4AFC620CA8172410CBC6B4C /* PrivateAIWidget */,
 				A478BC400597D0BE37B22755 /* ShareExtension */,
+				BAC64681904DC29EA587D0B0 /* MessagesExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -443,6 +537,21 @@
 			files = (
 				87AC06424C26315C7CE0D655 /* AnswerActivityAttributes.swift in Sources */,
 				6466E7F62ACF75F09EFB0EA0 /* AnswerLiveActivity.swift in Sources */,
+				52A41D3162EED09096E679B0 /* AskPrivateAIWidget.swift in Sources */,
+				602F6099351644ABD758AD7C /* ExtensionChatClient.swift in Sources */,
+				F2DC5404B4584B475CDEC742 /* NetworkConfig.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		6ADC98BBA39280460A01B84F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				381BBD8E95BDBDE8259542A9 /* AnswerActivityAttributes.swift in Sources */,
+				3053E35FE1DCD5A7D2D787BB /* ExtensionChatClient.swift in Sources */,
+				F41389147FC89F04D879ED05 /* MessagesRootView.swift in Sources */,
+				FD6CEC0B410A9E92A91259DE /* MessagesViewController.swift in Sources */,
+				2B7AFA3D6D5702A3B8D7CAA7 /* NetworkConfig.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -460,11 +569,13 @@
 				3D1DA86F903AE439E7BEEE45 /* BackendClient.swift in Sources */,
 				0FA9CC999CE60261DC2A7AD8 /* BrandMark.swift in Sources */,
 				872B885EED3B15D6386084CC /* CalendarService.swift in Sources */,
+				166E19F3A26C0AE7563EB913 /* ChatExportService.swift in Sources */,
 				DBEA5E863883885BAF3EC4F5 /* ChatModels.swift in Sources */,
 				EE9C0F6A37A14A4E5AF5181B /* ChatStore.swift in Sources */,
 				731548D56F11722D8FE9E4D1 /* ChatView.swift in Sources */,
 				0D78B7A0FB948E224000F79F /* ComposerBar.swift in Sources */,
 				847E759AA8ABCB4A9E976F92 /* DeviceID.swift in Sources */,
+				2ECE1FEBEB9193C72DED78F5 /* ExtensionChatClient.swift in Sources */,
 				E57407FA67EB6887EA52F303 /* FollowUpSuggestions.swift in Sources */,
 				4FEA2B3E8D69CA78289E7BED /* Haptics.swift in Sources */,
 				A019859D6A40903CC637B996 /* Legal.swift in Sources */,
@@ -474,10 +585,13 @@
 				8D0B54BA79907CFBB0EB248B /* MemoryLearning.swift in Sources */,
 				1FA9F52B1BF5A0B18564D3D0 /* MemoryStore.swift in Sources */,
 				9156682BBE825C7B93D3D3FE /* MessageBubble.swift in Sources */,
+				70D5173ECC3482F603B4C43E /* NetworkConfig.swift in Sources */,
+				4D7C32D29A48F86BCCE44B1A /* OnDeviceAssist.swift in Sources */,
 				04EA5BA6259E97D8103662EF /* OnboardingView.swift in Sources */,
 				DC62E75DD4928D1D2D886A6C /* PaywallView.swift in Sources */,
 				6ABD2BA621F34C71A54CC445 /* PrivateAIApp.swift in Sources */,
 				147FA9A3B81610DEBC922263 /* PurchaseStore.swift in Sources */,
+				F1E0634CF292934AC58CC703 /* QuotaNotificationScheduler.swift in Sources */,
 				07CA8FD6661B4E4ACB2086EA /* RootView.swift in Sources */,
 				F9EE0598E2BC19B1D2D9AAEA /* SettingsView.swift in Sources */,
 				C0D763FFC862579F99D95BAA /* ShareCardView.swift in Sources */,
@@ -501,6 +615,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		3E23C9B8D45109F68929A64F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BAC64681904DC29EA587D0B0 /* MessagesExtension */;
+			targetProxy = F382A1EF53480B314E91341D /* PBXContainerItemProxy */;
+		};
 		A6EBAD2C0DC9E56F4C904DBB /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = B4AFC620CA8172410CBC6B4C /* PrivateAIWidget */;
@@ -514,6 +633,22 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		308D57929F25F6A6B09A51A2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = MessagesExtension/MessagesExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MessagesExtension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = inc.neocast.privateai.messages;
+				PRODUCT_NAME = MessagesExtension;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		363D3313BE23D5F4D0CE4B96 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -599,6 +734,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = PrivateAI/Resources/PrivateAI.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -618,6 +754,7 @@
 		8F5ED4B2B0D86FAB671E8841 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = PrivateAIWidget/PrivateAIWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = PrivateAIWidget/Info.plist;
@@ -633,6 +770,7 @@
 		B8B3EB6200676EF8333ABF28 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = PrivateAIWidget/PrivateAIWidget.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = PrivateAIWidget/Info.plist;
@@ -645,10 +783,27 @@
 			};
 			name = Release;
 		};
+		BE5A634E992919E068D7EFDA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = MessagesExtension/MessagesExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = MessagesExtension/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = inc.neocast.privateai.messages;
+				PRODUCT_NAME = MessagesExtension;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		C32CB0E8845A96D319615C1B /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = PrivateAI/Resources/PrivateAI.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -765,6 +920,15 @@
 			buildConfigurations = (
 				8A5187B5741473DC28F4301F /* Debug */,
 				C32CB0E8845A96D319615C1B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		D4B7E1767D980F3F9511F979 /* Build configuration list for PBXNativeTarget "MessagesExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				308D57929F25F6A6B09A51A2 /* Debug */,
+				BE5A634E992919E068D7EFDA /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

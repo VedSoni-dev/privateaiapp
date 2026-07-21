@@ -37,14 +37,26 @@ enum LiveActivityController {
         current = nil
         let state = AnswerActivityAttributes.ContentState(
             title: "Answer ready",
-            subtitle: String(preview.prefix(80)),
+            subtitle: String(preview.prefix(100)),
             isComplete: true
         )
         Task {
             await activity.end(
                 ActivityContent(state: state, staleDate: nil),
-                dismissalPolicy: .default
+                dismissalPolicy: .after(.now.addingTimeInterval(8))
             )
+        }
+    }
+
+    static func update(preview: String) {
+        guard let activity = current else { return }
+        let state = AnswerActivityAttributes.ContentState(
+            title: "Writing…",
+            subtitle: String(preview.suffix(90)),
+            isComplete: false
+        )
+        Task {
+            await activity.update(ActivityContent(state: state, staleDate: nil))
         }
     }
 

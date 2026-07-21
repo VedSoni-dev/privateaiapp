@@ -63,6 +63,19 @@ struct SpeakLastAnswerIntent: AppIntent {
     }
 }
 
+/// Ideal for Action Button / Control Center — opens a fresh private ask.
+struct ActionButtonAskIntent: AppIntent {
+    static var title: LocalizedStringResource = "Ask with Action Button"
+    static var description = IntentDescription("Open Private AI ready to ask.")
+    static var openAppWhenRun: Bool = true
+
+    @MainActor
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        NotificationCenter.default.post(name: .siriNewChat, object: false)
+        return .result(dialog: "Private AI is ready.")
+    }
+}
+
 /// Donated phrases must include `${applicationName}` and cannot take free-form
 /// String parameters on current SDKs — parameterized asks live in the Shortcuts
 /// app via `AskPrivateAIIntent`.
@@ -76,7 +89,7 @@ struct PrivateAIShortcuts: AppShortcutsProvider {
                 "Start \(.applicationName)",
             ],
             shortTitle: "Open",
-            systemImageName: "shield.fill"
+            systemImageName: "lock.bubble.fill"
         )
         AppShortcut(
             intent: NewPrivateChatIntent(),
@@ -104,6 +117,14 @@ struct PrivateAIShortcuts: AppShortcutsProvider {
             ],
             shortTitle: "Speak Answer",
             systemImageName: "speaker.wave.2.fill"
+        )
+        AppShortcut(
+            intent: ActionButtonAskIntent(),
+            phrases: [
+                "Action Button ask \(.applicationName)",
+            ],
+            shortTitle: "Action Ask",
+            systemImageName: "button.programmable"
         )
     }
 }

@@ -53,11 +53,13 @@ struct RootView: View {
         }
 
         if url.host == "ask" {
+            app.hasCompletedOnboarding = true
             let q = comps?.queryItems?.first(where: { $0.name == "q" || $0.name == "text" })?.value?
                 .removingPercentEncoding
             if let q, !q.isEmpty {
-                app.hasCompletedOnboarding = true
                 NotificationCenter.default.post(name: .siriAskText, object: q)
+            } else {
+                NotificationCenter.default.post(name: .siriNewChat, object: false)
             }
         }
     }

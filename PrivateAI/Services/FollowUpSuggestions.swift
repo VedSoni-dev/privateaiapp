@@ -79,6 +79,18 @@ enum FollowUpSuggestions {
             )
         }
 
+        if OnDeviceAssist.isAvailable {
+            chips.insert(
+                Chip(
+                    id: "ondevice",
+                    title: "On-device summary",
+                    prompt: "Summarize the last answer tightly for me (prefer on-device if possible).",
+                    systemImage: "iphone"
+                ),
+                at: 0
+            )
+        }
+
         if let memory {
             for fact in memory.relevantFacts(for: question + " " + answer, limit: 2, markUsed: false) {
                 chips.append(

@@ -6,27 +6,18 @@
 
 ## Shipped
 
-- Streaming chat + web-search agent, memory, ghost chats
+- Streaming chat + silent live lookup, memory, ghost chats
 - Face ID lock, Share Extension, Live Activities, share cards
 - RevenueCat / StoreKit Pro paywall
-- **Modernize pass**: floating Liquid Glass composer, SF Symbol chrome, haptics,
-  Reduce Motion scroll, markdown inline answers, App Intents (“Ask/Open Private AI”)
-- **Observation**: `@Observable` stores + `@Environment(AppModel.self)` / `@Bindable`
-  (no Combine `ObservableObject` / `@Published` / `@EnvironmentObject`)
-- Appearance: System / Light / Dark; biometry-aware lock copy
-- Dynamic Type on paywall price
-- **Siri-like messages**: Speak/Stop (AVSpeech), action row, follow-up chips,
-  App Shortcuts (new chat / ghost / speak last answer)
-- **Brand**: crimson lock-bubble icon, `BrandMark` / `BrandCanvas`
-- **Memory v2**: categories, pin, learn toggle, ranked injection, dedupe
-- **Agent**: always-on silent live lookup, layered prompts, markdown + code fences
-- **10 free msgs/day**; no Web toggle (privacy-first UX)
-- Personalized suggestion chips from memory + recent chats
+- Observation stores, crimson lock-bubble brand
+- 10 free msgs/day; markdown + code fences; personalized suggestions
+- **iMessage app** (ask in DM/group, paste/selected-bubble context)
+- Home Screen widget, quota reminder, pin/folders, encrypted export
+- Action Button intent, multi-step agent digs, on-device assist hook
 
-## Still open (priority)
+## Still open
 
-1. Quota-reset local notification
-2. XCUITest + device Accessibility Nutrition Labels
-3. ASC + RevenueCat webhook account config (`LAUNCH.md`)
-4. Redeploy server with `FREE_DAILY_LIMIT=10` if env still pinned to 20
-5. Optional: typed App Entity for “Ask Private AI {question}” Siri phrases
+1. Redeploy server `FREE_DAILY_LIMIT=10` if env still 20
+2. Device pass: Messages App Store listing assets + Nutrition Labels
+3. ASC + RevenueCat webhook (`LAUNCH.md`)
+4. Harden Foundation Models API once Apple stabilizes response type

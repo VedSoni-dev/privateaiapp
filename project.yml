@@ -35,11 +35,14 @@ targets:
         GENERATE_INFOPLIST_FILE: false
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_ENTITLEMENTS: PrivateAI/Resources/PrivateAI.entitlements
         TARGETED_DEVICE_FAMILY: "1,2"
         SUPPORTS_MACCATALYST: false
     dependencies:
       - target: PrivateAIWidget
       - target: ShareExtension
+      - target: MessagesExtension
+        embed: true
       - package: RevenueCat
         product: RevenueCat
       - package: RevenueCat
@@ -60,6 +63,7 @@ targets:
         INFOPLIST_FILE: PrivateAIWidget/Info.plist
         GENERATE_INFOPLIST_FILE: false
         CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_ENTITLEMENTS: PrivateAIWidget/PrivateAIWidget.entitlements
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
         SKIP_INSTALL: true
 
@@ -80,6 +84,27 @@ targets:
         LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
         SKIP_INSTALL: true
 
+  MessagesExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: MessagesExtension
+        excludes:
+          - Info.plist
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: inc.neocast.privateai.messages
+        PRODUCT_NAME: MessagesExtension
+        INFOPLIST_FILE: MessagesExtension/Info.plist
+        GENERATE_INFOPLIST_FILE: false
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_ENTITLEMENTS: MessagesExtension/MessagesExtension.entitlements
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks @executable_path/../../Frameworks"
+        SKIP_INSTALL: true
+    dependencies:
+      - sdk: Messages.framework
+
 schemes:
   PrivateAI:
     build:
@@ -87,6 +112,7 @@ schemes:
         PrivateAI: all
         PrivateAIWidget: all
         ShareExtension: all
+        MessagesExtension: all
     run:
       config: Debug
     archive:

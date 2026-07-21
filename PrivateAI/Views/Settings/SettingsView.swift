@@ -29,20 +29,42 @@ struct SettingsView: View {
                     }
                     .accessibilityLabel("Start a new chat")
 
-                    ForEach(app.chat.sessions.filter { !$0.isGhost }) { session in
+                    ForEach(app.chat.orderedSessions) { session in
                         Button {
                             app.chat.selectSession(session.id)
                             dismiss()
                         } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(session.title).foregroundStyle(colors.textPrimary)
-                                Text(session.updatedAt.formatted(date: .abbreviated, time: .shortened))
+                            HStack(alignment: .top, spacing: 10) {
+                                if session.isPinned {
+                                    Image(systemName: "pin.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(colors.accent)
+                                }
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(session.title).foregroundStyle(colors.textPrimary)
+                                    HStack(spacing: 6) {
+                                        Label(session.folder.title, systemImage: session.folder.systemImage)
+                                        Text("·")
+                                        Text(session.updatedAt.formatted(date: .abbreviated, time: .shortened))
+                                    }
                                     .font(.caption)
                                     .foregroundStyle(colors.textMuted)
+                                    .labelStyle(.titleAndIcon)
+                                }
                             }
                         }
                         .accessibilityLabel("Open chat: \(session.title)")
                         .contextMenu {
+                            Button(session.isPinned ? "Unpin" : "Pin", systemImage: "pin") {
+                                app.chat.togglePin(session.id)
+                            }
+                            Menu("Move to") {
+                                ForEach(ChatSession.Folder.allCases) { folder in
+                                    Button(folder.title, systemImage: folder.systemImage) {
+                                        app.chat.setFolder(session.id, folder)
+                                    }
+                                }
+                            }
                             Button("Rename") {
                                 renameId = session.id
                                 renameText = session.title
@@ -53,7 +75,7 @@ struct SettingsView: View {
                         }
                     }
                     .onDelete { indexSet in
-                        let list = app.chat.sessions.filter { !$0.isGhost }
+                        let list = app.chat.orderedSessions
                         for i in indexSet { app.chat.deleteSession(list[i].id) }
                     }
                 }
@@ -65,6 +87,23 @@ struct SettingsView: View {
                         }
                     }
                     .accessibilityLabel("Appearance")
+
+                    Button {
+                        Task { await QuotaNotificationScheduler.requestAndSchedule() }
+                    } label: {
+                        Label("Daily free-message reminder", systemImage: "bell.badge")
+                    }
+                    .accessibilityLabel("Enable daily free message reminder at 9 AM")
+                }
+
+                Section("iMessage") {
+                    Text("In Messages, tap Apps → Private AI to ask in a DM or group. Everyone sees the answer bubble. Paste chat context if you want it to play along — Apple blocks silent full-thread reading.")
+                        .font(.caption)
+                        .foregroundStyle(colors.textMuted)
+                }
+
+                Section("Export") {
+                    ExportChatsButton()
                 }
 
                 Section("Privacy") {
@@ -303,4 +342,71 @@ struct MemoryView: View {
         case .cloudLearn: return "Learned from chat"
         }
     }
+}
+
+private struct ExportChatsButton: View {
+    @Environment(AppModel.self) private var app
+    @State private var passphrase = ""
+    @State private var showPrompt = false
+    @State private var exportURL: URL?
+    @State private var error: String?
+
+    var body: some View {
+        Button {
+            showPrompt = true
+        } label: {
+            Label("Export encrypted archive", systemImage: "lock.doc")
+        }
+        .accessibilityLabel("Export encrypted chat archive")
+        .alert("Encrypt export", isPresented: $showPrompt) {
+            SecureField("Passphrase", text: $passphrase)
+            Button("Export") { export() }
+            Button("Cancel", role: .cancel) { passphrase = "" }
+        } message: {
+            Text("Chats are encrypted with your passphrase (AES-GCM). Ghost chats are skipped.")
+        }
+        .alert("Export failed", isPresented: Binding(
+            get: { error != nil },
+            set: { if !$0 { error = nil } }
+        )) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(error ?? "")
+        }
+        .sheet(item: Binding(
+            get: { exportURL.map(IdentifiableURL.init) },
+            set: { exportURL = $0?.url }
+        )) { item in
+            ShareSheet(items: [item.url])
+        }
+    }
+
+    private func export() {
+        defer { passphrase = "" }
+        do {
+            let data = try ChatExportService.exportEncrypted(
+                sessions: app.chat.sessions,
+                passphrase: passphrase
+            )
+            let url = FileManager.default.temporaryDirectory
+                .appendingPathComponent("PrivateAI-chats-\(Int(Date().timeIntervalSince1970)).paiexport")
+            try data.write(to: url, options: .atomic)
+            exportURL = url
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+}
+
+private struct IdentifiableURL: Identifiable {
+    let id = UUID()
+    let url: URL
+}
+
+private struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }

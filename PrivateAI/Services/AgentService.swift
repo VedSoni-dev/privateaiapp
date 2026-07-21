@@ -51,18 +51,34 @@ enum AgentService {
             if let query, !query.isEmpty {
                 await onStatus("Checking latest info…")
                 let results = await WebSearchService.search(query: query)
+                // Optional second pass for multi-part questions (agentic research).
+                var merged = results
+                if userText.lowercased().contains(" and ") || userText.contains(";") || userText.lowercased().contains("then ") {
+                    await onStatus("Digging deeper…")
+                    if let secondQ = AgentPromptBuilder.secondaryQuery(from: userText, primary: query) {
+                        if let more = await WebSearchService.search(query: secondQ),
+                           let existing = merged {
+                            merged = SearchResult(
+                                text: existing.text + "\n\n" + more.text,
+                                items: Array((existing.items + more.items).prefix(6))
+                            )
+                        } else if merged == nil {
+                            merged = await WebSearchService.search(query: secondQ)
+                        }
+                    }
+                }
                 let call: ToolCallInfo
-                if let results, !results.items.isEmpty || !results.text.isEmpty {
+                if let merged, !merged.items.isEmpty || !merged.text.isEmpty {
                     call = ToolCallInfo(
                         tool: "live_lookup",
                         query: query,
-                        result: results.text,
+                        result: merged.text,
                         found: true,
-                        sources: results.items
+                        sources: merged.items
                     )
                     let lookup = AgentPromptBuilder.lookupResultsBlock(
                         query: query,
-                        body: results.text,
+                        body: merged.text,
                         found: true
                     )
                     finalMessages = [
@@ -108,9 +124,10 @@ enum AgentPromptBuilder {
 
         AGENCY
         - Prefer doing the work over asking permission. If a clarifying question is needed, ask ONE sharp question — then still give your best draft.
-        - Break multi-step asks into a short plan, then execute in the same reply.
+        - For multi-step asks (research + draft + plan): silently outline 2–4 steps, then execute them in one reply with clear headings.
         - When live lookup results are present, treat them as ground truth for changing facts.
         - Use remembered user facts silently to personalize tone, examples, and priorities.
+        - If the user asks to "do X then Y", structure the answer as Step 1 / Step 2 with the finished artifacts.
 
         FORMATTING (always)
         - Use Markdown: **bold** for key facts, short headings when useful, bullet lists for steps.
@@ -199,6 +216,19 @@ enum AgentPromptBuilder {
             if trimmed.uppercased() == "NONE" { return nil }
         }
         return nil
+    }
+
+    /// Second lookup query for multi-part asks.
+    static func secondaryQuery(from userText: String, primary: String) -> String? {
+        let parts = userText
+            .components(separatedBy: CharacterSet(charactersIn: ";"))
+            .flatMap { $0.components(separatedBy: " and ") }
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.count >= 12 }
+        guard parts.count >= 2 else { return nil }
+        let candidate = String(parts[1].prefix(160))
+        if candidate.caseInsensitiveCompare(primary) == .orderedSame { return nil }
+        return candidate
     }
 }
 

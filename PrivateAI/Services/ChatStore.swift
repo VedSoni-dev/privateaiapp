@@ -65,6 +65,27 @@ final class ChatStore {
         save()
     }
 
+    func togglePin(_ id: UUID) {
+        guard let i = sessions.firstIndex(where: { $0.id == id }) else { return }
+        sessions[i].isPinned.toggle()
+        save()
+    }
+
+    func setFolder(_ id: UUID, _ folder: ChatSession.Folder) {
+        guard let i = sessions.firstIndex(where: { $0.id == id }) else { return }
+        sessions[i].folder = folder
+        save()
+    }
+
+    var orderedSessions: [ChatSession] {
+        sessions
+            .filter { !$0.isGhost }
+            .sorted {
+                if $0.isPinned != $1.isPinned { return $0.isPinned && !$1.isPinned }
+                return $0.updatedAt > $1.updatedAt
+            }
+    }
+
     func stop() {
         streamTask?.cancel()
         streamTask = nil
@@ -145,6 +166,9 @@ final class ChatStore {
                     onToken: { [weak self] acc in
                         Task { @MainActor in
                             self?.streamingText = acc
+                            if acc.count % 48 < 8 {
+                                LiveActivityController.update(preview: acc)
+                            }
                         }
                     }
                 )

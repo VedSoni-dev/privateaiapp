@@ -37,5 +37,6 @@ final class AppModel {
     func completeOnboarding() {
         UserDefaults.standard.set(true, forKey: "onboarding_done")
         hasCompletedOnboarding = true
+        Task { await QuotaNotificationScheduler.requestAndSchedule() }
     }
 }
