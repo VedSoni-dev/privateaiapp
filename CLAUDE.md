@@ -1,188 +1,35 @@
-# Private AI — Agent Runbook
+# Private AI — Agent Runbook (native SwiftUI)
 
-ChatGPT-style iOS app with confidential-compute cloud inference. Managed Expo
-app (runs in Expo Go for dev), shipped via EAS to TestFlight.
-
-**Native-module policy (changed July 2026):** the app is migrating to an
-expo-dev-client workflow, so native modules are allowed — but they MUST be
-lazily `require()`d behind a graceful fallback (see `PurchaseService.ts`,
-`copyMessageText`) so the JS bundle still runs in Expo Go for quick iteration.
-Never import a non-Expo-SDK native module at the top level of a file that
-Expo Go loads.
+Native iOS app (SwiftUI). Expo sources live in `_legacy_expo/` for reference only.
 
 ## Architecture
 
 ```
-iPhone app (Expo, src/)
-  ├─ /v1/chat, /v1/usage*  →  Render backend (server/index.js, Express)
-  │                             └─ privatemode-proxy (confidential compute, gpt-oss-120b)
-  │                             └─ Upstash Redis (usage counters; in-memory fallback)
-  └─ /search               →  Cloudflare Worker (worker/src/index.ts)
-                                └─ Brave Search API → DDG fallback → r.jina.ai page reads
+iPhone app (SwiftUI, PrivateAI/)
+  ├─ /v1/chat, /v1/usage  →  Render backend (server/index.js)
+  │                            └─ privatemode-proxy (confidential compute)
+  └─ /search (optional)   →  Cloudflare Worker (worker/)
 ```
 
-- Backend URL: `https://private-ai-backend.onrender.com` (hardcoded in
-  `src/services/BackendClient.ts` and `UsageService.ts`)
-- Worker URL: `https://private-ai-search.vedantn06soni.workers.dev`
-  (hardcoded in `src/services/WebSearchService.ts`)
-- The app never holds the inference API key; only the backend does.
-
-## Key source files
-
-| Path | Role |
-|---|---|
-| `src/services/AgentService.ts` | Orchestrates a turn: decision pass (non-streaming) → optional web search → streaming answer |
-| `src/services/BackendClient.ts` | Only file that talks to the backend. Streaming MUST use `expo/fetch` (RN fetch has no readable body) |
-| `src/services/UsageService.ts` | Local usage cache + server sync. Server is source of truth |
-| `src/services/WebSearchService.ts` | Search client + heuristics for when to search; sends `x-search-token` |
-| `src/services/DeviceId.ts` | Random per-install ID; spoofable, quota is advisory until App Attest |
-| `src/theme/ThemeContext.tsx` | `useTheme()` — light/dark colors + mode + setMode, persisted to AsyncStorage. Use this, not `AppColors`, in anything new |
-| `src/services/LiveActivityService.ts` | Dynamic Island / lock-screen progress for in-flight answers |
-| `src/services/BackgroundExecutionService.ts` | Extends iOS's background-execution grace so streams survive backgrounding |
-| `src/services/NotificationService.ts` | Local-only notifications (quota-reset reminder; generic scheduler for future nudges) |
-| `src/services/CalendarService.ts` | Adds events via the OS's native "Add Event" dialog — write-only, never reads the calendar |
-| `src/ShareExtension.tsx` | Share Extension UI (separate JS bundle, entry: `index.share.js`) — hands shared text to the main app via `privateai://share` |
-| `server/index.js` | Express backend: rate limit, capacity guard, validation, usage gating/counting, SSE relay |
-| `server/logic.js` | Pure usage/entitlement/validation logic extracted from index.js so it's testable — index.js has import-time side effects (spawns a subprocess, exits without an API key) that make it unsafe to import directly |
-| `worker/src/index.ts` | Search Worker + cron keep-warm ping for Render free tier |
-
-## Usage / entitlement model (money lives here — be careful)
-
-- The **server** counts messages: each `stream: true` call to `/v1/chat`
-  increments `usage:{deviceId}:{date}` (Redis INCR, atomic). Non-streaming
-  calls (decision pass, memory extraction) only count toward a total-call
-  backstop (`calls:{deviceId}:{date}`, cap `MAX_DAILY_CALLS` = 8× limit).
-- Free limit: 20 messages/day (`FREE_DAILY_LIMIT`). Over limit → HTTP 402.
-- Failed upstream requests are refunded (DECR).
-- `POST /v1/usage/record` is a **read-only sync** kept for old shipped
-  clients — it must never increment again (double-count).
-- `POST /v1/usage/pro` is **disabled unless `ALLOW_CLIENT_PRO=true`** on
-  Render. It trusts the client and exists only for TestFlight testing. It must
-  be OFF in production; real Pro requires StoreKit receipt validation
-  (RevenueCat planned, not yet implemented — no real IAP exists yet).
-- Client dates (`x-client-date`) are only honored within ±1 day of server time.
-- The usage gate **fails open** if Redis is down (deliberate UX tradeoff).
-
-## Env vars
-
-Render backend: `PRIVATEMODE_API_KEY` (required), `UPSTASH_REDIS_REST_URL`,
-`UPSTASH_REDIS_REST_TOKEN` (without these usage falls back to per-instance
-memory — set them in production), `ALLOW_CLIENT_PRO` (TestFlight only),
-`RC_WEBHOOK_AUTH` (shared secret for the RevenueCat webhook; unset →
-`/v1/rc-webhook` refuses everything), `PRIVATEMODE_MODEL` (default
-`gpt-oss-120b`, used for free-tier + all non-streaming/internal calls),
-`PRIVATEMODE_MODEL_PRO` (default `kimi-k2.6`, used only for a Pro user's
-streaming answer — see Privatemode pricing before changing either; Kimi
-costs ~4.5x gpt-oss-120b per output token),
-`FREE_DAILY_LIMIT`, `MAX_DAILY_CALLS`, `RATE_LIMIT_MAX`, `MAX_TOKENS`, etc.
-(see top of `server/index.js`).
-
-Worker: `BRAVE_KEY` (secret), `SEARCH_TOKEN` (secret; when set, `/search`
-requires the matching `x-search-token` header — the constant in
-`WebSearchService.ts`. Only set it after builds without the header age out,
-or search silently breaks for them).
+- Backend URL: `https://private-ai-backend.onrender.com`
+- Bundle ID: `inc.neocast.privateai`
+- The app never holds the inference API key.
 
 ## Commands
 
 ```bash
-npm start                 # Expo dev server (Expo Go)
-npx tsc --noEmit          # typecheck — run after any src/ change
-npm run lint
-npm test                  # server/logic.test.js (node --test) — usage/entitlement/validation logic
-npm run test:api          # backend smoke test against a live server (scripts/test-api.mjs)
+xcodegen generate
+open PrivateAI.xcodeproj
+# or:
+xcodebuild -scheme PrivateAI -destination 'platform=iOS Simulator,name=iPhone 16' build
 
-# Backend: deploys automatically when the branch on Render is pushed (Render dashboard)
-# Worker:
-cd worker && npx wrangler deploy
-npx wrangler secret put SEARCH_TOKEN   # enable search auth (see caveat above)
-
-# iOS release:
-npx eas build --platform ios --profile production
-npx eas submit --platform ios
+cd server && npm test          # usage/entitlement logic
 ```
 
-## Production status / open items
+First-time Mac: install **iOS platform** in Xcode → Settings → Components
+(or `xcodebuild -downloadPlatform iOS`).
 
-Done: server-side usage counting, worker auth (code-ready, secret not set),
-rate limiting + capacity guard + input validation, accessibility labels +
-44pt targets + AA contrast, FTC AI disclosure (ChatScreen input area) and
-subscription cancel disclosure (PaywallModal), Dynamic Island Live Activity
-+ background-execution grace, Share Extension (share text/a URL into the
-app from anywhere, e.g. selected Messages text), local notifications
-(quota-reset reminder), calendar event creation from any message, memory
-categorization + a real Memory screen + conservative proactive nudges,
-real unit tests for the server's usage/entitlement/validation logic
-(`server/logic.js` + `server/logic.test.js`, run via `npm test`), full
-light/dark theme system with a manual toggle (Settings panel), copy button
-on markdown code blocks, chat session rename/delete (long-press in sidebar,
-`ChatStorage.renameSession`/`deleteSession`), branded share-card images
-(long-press an answer → "Share as Image" → `ShareCardModal.tsx` renders a
-fixed-brand card, `react-native-view-shot` captures it, `expo-sharing` opens
-the share sheet — both bundled in Expo Go; falls back to plain-text share),
-privacy trifecta (`AppLockService.ts` Face ID app lock — opt-in Settings
-toggle, `LockScreen.tsx` cover in App.tsx, locks on background not inactive,
-fail-open if biometrics unavailable, disabling the lock re-authenticates
-first; ghost chats — 👻 row in Settings, `ghostMode` in ChatScreen skips
-session save AND memory learning, header badge shows "not saved"; panic
-wipe — "Erase everything" clears chats/memory/suggestions but keeps
-device_id (wiping it = fresh-quota loophole), usage, theme, lock setting).
+## Still to port from Expo
 
-Open, in priority order (full step-by-step: **LAUNCH.md**):
-1. **Real IAP — ALL code is done, config is not**: `PurchaseService.ts`
-   wraps RevenueCat (lazy-required, Expo Go-safe, appUserID = deviceId) and
-   the server validates entitlements via the RevenueCat webhook
-   (`POST /v1/rc-webhook`, auth = `RC_WEBHOOK_AUTH` env, logic + tests in
-   `server/logic.js`: `rcEntitlementUpdates`). Still needed from the user
-   (LAUNCH.md Day 1): App Store Connect agreements + subscription product,
-   RevenueCat project + webhook, paste the `appl_` key into
-   `PurchaseService.ts`, set `RC_WEBHOOK_AUTH` on Render, build. Once live,
-   `ALLOW_CLIENT_PRO` must be deleted.
-2. Privacy nutrition labels in App Store Connect (policy exists: PRIVACY.md,
-   linked from the paywall; guidance in LAUNCH.md Day 2).
-3. Live Activities / Dynamic Island — CODE DONE, unverified until the first
-   dev-client build: `LiveActivityService.ts` (lazy-required) wraps the
-   deprecated-but-functional `expo-live-activity` 0.4.2 (last version that
-   supports SDK 54). On the next SDK upgrade (55+), swap it for the official
-   `expo-widgets`. Started on send, completed/errored with the stream.
-4. Crash reporting (`sentry-expo`) — needs a DSN from the user.
-5. App Attest / DeviceCheck to make device quotas non-spoofable.
-
-## Gotchas
-
-- Streaming: `expo/fetch` only. RN's fetch silently lacks `res.body`.
-- Render free tier sleeps; the Worker cron pings `/health` to keep it warm.
-  A deploy wipes in-memory usage/rate-limit state (Redis path unaffected).
-- `AppColors.accentCyan` is actually crimson (#8f1d31) — the semantic token
-  names survived the palette change; don't "fix" them mechanically.
-- `textMuted` was darkened for WCAG AA (4.5:1) — check contrast before
-  lightening any text color on the cream background.
-- **Theming**: use `useTheme()` from `src/theme` (never import `AppColors`
-  directly in anything new — it's the static light-only export kept only for
-  back-compat). Every `StyleSheet.create` must be a `createStyles(colors: AppColorsType) =>
-  StyleSheet.create({...})` factory called via `useMemo(() => createStyles(colors), [colors])`
-  inside the component — `StyleSheet.create` at module scope evaluates once
-  and won't react to theme changes. `LiveActivityService.ts` (native
-  ActivityKit config) and `ShareExtension.tsx` (separate JS bundle/process,
-  no shared React context with the main app) are deliberately NOT
-  theme-reactive — left on the light palette. Dark mode is a manual
-  light/dark toggle only (Settings panel), not "follow system" — `app.json`'s
-  `userInterfaceStyle: "light"` locks `useColorScheme()` to always report
-  light regardless of the phone's actual setting; enabling real system-follow
-  needs that changed to `"automatic"`, which is a native config change
-  (needs a new build) not yet done.
-- Old TestFlight builds still call `/v1/usage/record` and don't send
-  `x-search-token`; keep both compatible until those builds are gone.
-- `expo-share-extension`'s `openHostApp(path)` opens the app's own configured
-  `scheme` (`privateai://`), not a fixed library scheme — confirmed from the
-  library's own example app.json, not documented in its README. The query
-  key used when calling `openHostApp` must exactly match the `parse` key in
-  App.tsx's `linking.config.screens.Chat` (currently `sharedText`).
-- EAS free tier is 15 builds/month; only native-dependency or native-config
-  changes cost a build. Batch multiple native additions into one build
-  rather than one-at-a-time — see git history around Notifications/Calendar/
-  Share Extension landing together.
-- iOS extension sandboxing is absolute: no iMessage extension, custom
-  keyboard, or Share Extension can read another app's data (e.g. Messages
-  thread history) — only what the user explicitly selects/shares. Don't
-  propose "read the conversation" features; the Share Extension covers the
-  legitimate version of that ask.
+RevenueCat IAP, Share Extension, Live Activities, Face ID lock UI, share cards,
+web-search agent orchestration. Backend + Worker are unchanged.

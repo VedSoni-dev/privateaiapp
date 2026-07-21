@@ -1,10 +1,17 @@
 # Private AI — 2-Day Public Launch Runbook
 
-The code side of IAP, entitlements, and the share loop is DONE (see
-"Already wired" below). What remains is account setup only you can do
-(Apple + RevenueCat logins), config paste-ins, and the build/submit cycle.
-Work top to bottom; items marked **⏰ SLOW** have external review/processing
-time — start them first.
+Do this on your **Mac**, in Terminal, after finishing Day 0 in **BUILD.md**
+(Homebrew / Node / `npm install` / EAS login). The code side of IAP,
+entitlements, and the share loop is DONE (see "Already wired" below). What
+remains is account setup only you can do (Apple + RevenueCat logins), a few
+config paste-ins, and the build/submit cycle. Work top to bottom; items marked
+**⏰ SLOW** have external review/processing time — start them first.
+
+**Already done in-repo (skip if still listed elsewhere as TODO):**
+App Store app id `6785089361` is in `eas.json` + share card;
+`REVENUECAT_IOS_KEY` is set in `PurchaseService.ts` (confirm it matches your
+RevenueCat **Apple** public key, not a Test Store `test_` key, before you
+submit).
 
 ## Already wired in code (nothing to do here)
 
@@ -63,11 +70,11 @@ time — start them first.
 - Offerings → make sure the default offering contains `pro_monthly`
   (the paywall buys `offerings.current.availablePackages[0]`).
 
-### 5. Paste the API key
-- RevenueCat → Project settings → API keys → copy the **Apple public key**
-  (`appl_...`).
-- Paste it into `REVENUECAT_IOS_KEY` in `src/services/PurchaseService.ts`.
-  It's a public key; committing it is fine.
+### 5. Confirm the API key
+- RevenueCat → Project settings → API keys → copy the **Apple** public key
+  (`appl_...`). Must **not** be a Test Store key (`test_...`).
+- Open `src/services/PurchaseService.ts` and confirm `REVENUECAT_IOS_KEY`
+  matches. If it differs, paste yours and commit. Public key — fine to commit.
 
 ### 6. Webhook (server-side Pro validation)
 - Generate a long random secret, e.g. in any terminal:
@@ -90,17 +97,23 @@ time — start them first.
 - Confirm `PRIVATEMODE_API_KEY` is set (it is, if the backend is up).
 - Leave the worker's `SEARCH_TOKEN` **unset** for now (see CLAUDE.md gotcha).
 
-### 8. Flip the share-card funnel + version
-- `src/components/ShareCardModal.tsx` → set
-  `APP_STORE_URL = 'https://apps.apple.com/app/id<APPLE_ID>'` (from step 2).
+### 8. Share-card funnel + version
+- `ShareCardModal.tsx` already uses `https://apps.apple.com/app/id6785089361`.
+  Confirm that id matches App Information → Apple ID in ASC (step 2). Fix only
+  if they diverge.
 - `app.json` → bump `version` if desired for the launch build.
 
 ### 9. Build + TestFlight ⏰ SLOW (build ~20 min, processing ~30 min)
+
+From the repo root on your Mac (not PowerShell — plain Terminal / zsh):
+
 ```bash
 npx eas build --platform ios --profile production
-npx eas submit --platform ios
+npx eas submit --platform ios --latest
 ```
-- In ASC → TestFlight → add yourself as internal tester → install.
+
+- In ASC → TestFlight → add yourself as internal tester → install via the
+  TestFlight app.
 
 ### 10. Verify the money path on the TestFlight build
 Sandbox purchases are automatic in TestFlight — you won't be charged.
