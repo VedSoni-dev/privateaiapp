@@ -1,110 +1,99 @@
-# App Store listing copy — paste into App Store Connect
+# App Store listing — paste into App Store Connect
 
-Ready-to-paste text for every field ASC asks for. Character limits noted;
-all entries below are within them.
+Native SwiftUI build (v3). Character limits noted; all entries fit.
 
 ## App name (30 chars max)
 ```
 Private AI — Confidential Chat
 ```
-(If taken, fallbacks: `Private AI: Encrypted Chat`, `PrivateAI — Secure Assistant`)
+Fallbacks if taken: `Private AI: Locked Chat`, `PrivateAI — Secure Assistant`
 
 ## Subtitle (30 chars max)
 ```
-AI answers nobody else can see
+AI nobody else can read
 ```
 
-## Promotional text (170 chars max — editable without review)
+## Promotional text (170 chars max — editable without a new binary)
 ```
-Ask anything. No account, no ads, no training on your chats. Answers run in
-confidential compute — even our servers can't read them. 20 free messages
-every day.
+Ask anything. No account. No ads. Answers run in confidential compute — built so we can’t casually read them. 10 free messages every day.
 ```
 
 ## Description (4000 chars max)
 ```
-Most AI chat apps read your conversations. They log them, train on them, and
-tie them to your identity. Private AI is built so nobody can — not even us.
+Most AI chat apps turn your questions into their product. Private AI is built so that doesn’t happen.
+
+NO ACCOUNT. ON PURPOSE.
+No email. No password. No profile. An anonymous device ID handles free limits and Pro — nothing to phish, nothing to dox. Pro restores through Apple, not a Private AI login.
 
 CONFIDENTIAL BY ARCHITECTURE
-Your questions are processed inside confidential-compute enclaves — encrypted
-in transit AND during processing. There is no account, no email, no phone
-number. We couldn't sell your data if we wanted to, because we never see it.
+Prompts are processed for answers inside a confidential-compute setup. Your phone never holds the model API key. Ghost chats never save. Memory lives on your device — visible, pinnable, erasable.
 
-EVERYTHING A MODERN AI ASSISTANT DOES
-• Instant, streaming answers to anything — writing, code, advice, explanations
-• Web search built in: news, scores, prices, with sources cited
-• Beautiful share cards: turn any answer into an image worth sending
-• Add events to your calendar straight from a message
-• Share text into Private AI from any app
-• Full markdown: tables, code blocks with one-tap copy
-• Light and dark themes
+EVERYTHING YOU WANT FROM A MODERN ASSISTANT
+• Streaming answers for writing, code, advice, and explanations
+• Quiet live lookups when facts change day to day — still framed as private
+• Markdown answers with copyable code
+• Speak replies out loud
+• Smart follow-ups and personalized openers that learn what matters to you
+• Share cards, calendar add, Share Extension, Home Screen widget
+• iMessage app: ask in a DM or group so everyone sees the bubble
+• Face ID / Touch ID lock, Siri shortcuts, Action Button ready
+• Light, dark, or system appearance
 
-MEMORY YOU ACTUALLY CONTROL
-Private AI can remember useful facts between chats — and shows you a chip the
-moment it learns something, with a one-tap "Forget." The full memory list is
-always visible, editable, and deletable. No hidden profile, ever.
-
-PRIVATE MODE
-Flip one switch and nothing leaves your phone except the conversation itself —
-no web search, no lookups. For the questions you wouldn't type anywhere else.
+MEMORY YOU CONTROL
+Facts Private AI learns show up in Settings. Pin them. Forget one. Forget all. Ghost chats teach nothing.
 
 FREE EVERY DAY
-20 messages a day, free, forever. No credit card, no signup.
+10 messages a day, free, forever. No credit card. No signup.
 
 PRO
-Unlimited messages with Pro, a simple monthly subscription. Cancel anytime in
-Settings → Apple ID → Subscriptions.
+Unlimited messages. Same privacy posture. Cancel anytime in Settings → Apple ID → Subscriptions.
 
-Your questions deserve better than becoming someone's training data.
+Your questions deserve better than becoming someone’s training set.
 ```
 
 ## Keywords (100 chars max, comma-separated, no spaces after commas)
 ```
-private ai,chatgpt,confidential,encrypted chat,ai assistant,secure,anonymous,gpt,privacy,chatbot
+private ai,chatgpt,confidential,encrypted chat,ai assistant,secure,anonymous,privacy,chatbot,siri
 ```
 
-## What's New (first release)
+## What’s New (3.0.0 — native rewrite)
 ```
-First release: confidential AI chat with web search, controllable memory,
-share cards, dark mode, and 20 free messages every day.
+All-new native iOS app: confidential chat, no account, Face ID lock, memory you control, speak answers, iMessage asks, Home Screen widget, and 10 free messages a day.
 ```
 
-## App Review notes (paste into the Review Information box)
+## App Review notes
 ```
-No account or login is required — the app works immediately on first launch.
+No account or login — works immediately after onboarding.
 
-Free tier: 20 messages per day per device. "Pro" ($19.99/month auto-renewing
-subscription via StoreKit/RevenueCat) removes the daily cap. The paywall
-appears when the cap is reached or via "Upgrade".
+Free tier: 10 messages/day per anonymous device ID. Pro is an auto-renewing monthly subscription (product id pro_monthly) via StoreKit/RevenueCat; restore purchases uses Apple ID.
 
-AI responses are generated by an open-weight model (gpt-oss-120b) running on
-a confidential-compute backend; responses carry an AI-generated disclosure
-under the input field. Web search is proxied through our server; the app
-contains no general-purpose browser.
+Privacy: confidential-compute inference; on-device chat history + memory; ghost chats not saved. Tap the title bar or Settings → How privacy works for the in-app explainer. Terms + Privacy Policy linked in onboarding and paywall.
 
-Content moderation: users can long-press any AI response and choose "Report"
-to flag it, which opens a prefilled report on our public issue tracker
-(the same contact channel listed in our Privacy Policy and Terms of Use).
-Terms of Use — including acceptable-use restrictions and the reporting
-mechanism — are linked in onboarding before first use and in the paywall.
+Live lookups run only when fresh facts help; the app does not offer a “leave private mode” switch.
 
-The share feature renders an image of a question/answer pair and opens the
-standard iOS share sheet — no photo library access is used or required.
+Content moderation: long-press an AI answer → Report (opens prefilled GitHub issue).
+
+iMessage extension: Apps drawer → Private AI. Apple does not allow reading the full thread; users paste context or select a prior Private AI bubble.
+
+Live Activities / Dynamic Island may appear while an answer streams.
 ```
 
 ## Category
 - Primary: Productivity
 - Secondary: Utilities
 
-## Age rating questionnaire pointers
-- Unrestricted web access: **No** (search results are server-curated snippets;
-  no in-app browser)
-- Generated content: answer honestly that the app produces AI text; with
-  standard answers this typically lands 12+.
+## Age rating pointers
+- Unrestricted web access: **No** (no in-app browser; server-curated snippets only)
+- AI-generated content: Yes — disclose honestly (typically 12+)
 
 ## URLs
-- Support URL: the GitHub repo (or a simple page) —
-  https://github.com/VedSoni-dev/privateaiapp
-- Privacy Policy URL:
-  https://github.com/VedSoni-dev/privateaiapp/blob/main/PRIVACY.md
+- Support: https://github.com/VedSoni-dev/privateaiapp
+- Privacy Policy: https://github.com/VedSoni-dev/privateaiapp/blob/main/PRIVACY.md
+- Terms: https://github.com/VedSoni-dev/privateaiapp/blob/main/TERMS.md
+- Marketing / App Store: https://apps.apple.com/app/id6785089361
+
+## Privacy Nutrition Labels (honest match to PRIVACY.md)
+- Identifiers → Device ID — App Functionality, not linked, not used for tracking
+- User Content → processed for answers (App Functionality), not stored by you beyond inference; not tracking
+- Purchases → via Apple / RevenueCat — App Functionality
+- No advertising / no tracking SDKs

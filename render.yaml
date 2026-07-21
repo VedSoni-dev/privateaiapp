@@ -9,9 +9,17 @@ services:
     envVars:
       - key: PORT
         value: 3000
+      - key: FREE_DAILY_LIMIT
+        value: "10"
       - key: PRIVATEMODE_MODEL
         value: gpt-oss-120b
       - key: PRIVATEMODE_MODEL_PRO
         value: kimi-k2.6
       - key: PRIVATEMODE_API_KEY
+        sync: false
+      - key: RC_WEBHOOK_AUTH
+        sync: false
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
         sync: false
