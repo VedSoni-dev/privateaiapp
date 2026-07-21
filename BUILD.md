@@ -1,188 +1,203 @@
-# Building Private AI (no Mac required)
+# Building Private AI on a Mac (first-time iPhone setup)
 
-You have Expo + access to Martin's Apple Developer team. Follow these steps in order.
+You are shipping a **managed Expo** iOS app. On a Mac you still do **not** need
+to open Xcode every day — Expo + EAS Cloud Build compile the native bits in the
+cloud. You *do* need a Mac (or at least an Apple Developer account + EAS) to
+sign, install TestFlight builds, and submit to the App Store.
 
-## Before you start — confirm with Martin
+This guide replaces the old Windows / PowerShell flow. Use **Terminal.app**
+(or iTerm) throughout.
 
-1. **Accept the Apple invite** — Check your email for an invite from Apple Developer. Accept it, then sign in at [developer.apple.com](https://developer.apple.com) with your Apple ID.
-2. **Your role** — You need at least **Developer** or **Admin** to register devices and create provisioning profiles. If builds fail on credentials, Martin may need to bump your role.
-3. **Bundle ID** — This project uses `inc.neocast.privateai` (registered under Neocast Inc.'s Apple team).
+## What you need before typing anything
+
+1. **Mac** with macOS recent enough for Xcode Command Line Tools (Sonoma/Sequoia fine).
+2. **Apple ID** that is on the Neocast Inc. Apple Developer team (`749YZ5JL3X`).
+   Accept the invite email → confirm at [developer.apple.com](https://developer.apple.com).
+3. **Role**: Developer or Admin (needed for devices + provisioning).
+4. Bundle ID (already set): `inc.neocast.privateai` in `app.json`.
+5. Free accounts: [expo.dev](https://expo.dev), and later RevenueCat (see `LAUNCH.md`).
+
+You do **not** need a full local Xcode iOS build for day-to-day JS work.
+Expo Go or a one-time **dev client** build is enough.
 
 ---
 
-## One-time setup (on your Windows PC)
+## Day 0 — install the Mac toolchain (once)
 
-Open PowerShell in the project folder:
+Open Terminal and run:
 
-```powershell
-cd C:\Users\vedan\privateaiapp
+```bash
+# 1) Homebrew (if you don't have it)
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# 2) Node 20 LTS (matches CI) + git if missing
+brew install node@20 git
+# follow the brew "caveats" to put node@20 on your PATH if needed
+
+# 3) Xcode Command Line Tools (needed by Expo / cocoapods / signing helpers)
+xcode-select --install
+
+# 4) Optional but useful: full Xcode from the Mac App Store
+#    (Simulator + Instruments). Not required for EAS cloud builds.
+```
+
+Confirm:
+
+```bash
+node -v   # should be v20.x (or ≥18)
+npm -v
+git --version
+```
+
+Clone and install (pick your real path):
+
+```bash
+cd ~/Developer   # or wherever you keep projects
+git clone https://github.com/VedSoni-dev/privateaiapp.git
+cd privateaiapp
 npm install
-npx install-expo-modules@latest
 ```
 
-When `install-expo-modules` asks questions, accept defaults.
+Worker deps only if you will run search locally:
 
-Link the project to your Expo account:
-
-```powershell
-npx eas login
-npx eas init
+```bash
+cd worker && npm install && cd ..
 ```
-
-`eas init` creates the Expo project and writes a `projectId` into `app.config.js`.
 
 ---
 
-## Register your iPhone
+## Day-to-day JS development (no native rebuild)
 
-EAS needs your phone's UDID for internal installs:
+This is the fast loop — same as on Windows, but in Terminal:
 
-```powershell
-npx eas device:create
+```bash
+cd ~/Developer/privateaiapp
+npm start
+# or: npx expo start --go -c
 ```
 
-- Open the link on your **iPhone**
-- Install the small profile it asks for (Settings → General → VPN & Device Management)
-- Your device is then registered with Apple's portal (via Martin's team)
+- Install **Expo Go** from the App Store on your iPhone.
+- Phone and Mac on the same Wi‑Fi → scan the QR code in Terminal (Camera app
+  or Expo Go).
+- Hot reload works for almost all `src/` changes.
+
+**Native modules** (RevenueCat / Live Activities / Share Extension / etc.) are
+lazily loaded so Expo Go still boots. Real purchases, Dynamic Island, and the
+Share Extension only work in a **dev-client** or **TestFlight** build — not in
+Expo Go. That is expected.
+
+Typecheck / lint / unit tests (run these after non-trivial changes):
+
+```bash
+npx tsc --noEmit
+npm run lint
+npm test
+```
 
 ---
 
-## Build and install on your iPhone
+## One-time: link Expo + register your iPhone
 
-```powershell
-npm run build:ios
+```bash
+npx eas-cli@latest login
+npx eas-cli@latest whoami
+# Project is already linked (app.json → extra.eas.projectId). No eas init needed.
 ```
 
-Or explicitly:
+Register the physical iPhone for internal / development installs:
 
-```powershell
-npx eas build --platform ios --profile preview
+```bash
+npx eas-cli@latest device:create
 ```
 
-During the first build, EAS will ask:
-
-| Prompt | What to choose |
-|--------|----------------|
-| Apple account | **Your** Apple ID (the one Martin added to the team) |
-| Team | **Martin's team** (not your personal team, if you have one) |
-| Credentials | **Let EAS handle it** (recommended) |
-
-When the build finishes (~15–25 min), you'll get a link/QR code. Open it **on your iPhone** to install Private AI.
+Open the link **on the iPhone**, install the profile
+(Settings → General → VPN & Device Management). Your UDID is then on the team.
 
 ---
 
-## After install — running the app
+## Which build do I want?
 
-The preview build is a **standalone app** (not Expo Go). You do **not** need Metro running for daily use.
+| Goal | Profile | Command |
+|------|---------|---------|
+| Daily JS iteration | (none) | `npm start` + Expo Go |
+| Test native features (IAP, Live Activities, Share Extension) | `development` | `npx eas build --platform ios --profile development` then `npm start` |
+| Internal install without Expo Go | `preview` | `npx eas build --platform ios --profile preview` |
+| TestFlight / App Store | `production` | see below / `LAUNCH.md` |
 
-On first launch:
+First time EAS asks:
 
-1. App downloads the AI model (~250MB) — use Wi‑Fi
-2. Then you can chat offline
+| Prompt | Choose |
+|--------|--------|
+| Apple account | **Your** Apple ID (the one on Martin's / Neocast team) |
+| Team | **Neocast Inc.** (`749YZ5JL3X`) |
+| Credentials | **Let EAS handle it** |
 
-For **development** with hot reload, you'd use a `development` profile build + `npm start` — optional for now.
+Build takes ~15–25 minutes. When it finishes, open the install link **on the iPhone**.
+
+### Development client (recommended once before launch)
+
+```bash
+npx eas build --platform ios --profile development
+```
+
+Install that build, then on the Mac:
+
+```bash
+npm start
+```
+
+The custom client loads Metro the same way Expo Go does, but with native
+modules present — this is how you verify Live Activities + purchases before
+TestFlight.
 
 ---
 
 ## TestFlight (App Store beta)
 
-TestFlight uses a **production** build (App Store signing), not the `preview` profile you used for direct install.
+App Store Connect already has this app (`ascAppId` `6785089361` in `eas.json`;
+share card already points at `https://apps.apple.com/app/id6785089361`).
 
-### One-time: Martin / App Store Connect
-
-Martin (or anyone with **Admin** on the Apple team) should confirm:
-
-1. Bundle ID `inc.neocast.privateai` exists in [Apple Developer → Identifiers](https://developer.apple.com/account/resources/identifiers/list)
-2. An app record exists in [App Store Connect](https://appstoreconnect.apple.com) → **Apps** → **+** → New App  
-   - Platform: iOS  
-   - Name: **Private AI** (or similar)  
-   - Bundle ID: `inc.neocast.privateai`  
-   - SKU: anything (e.g. `private-ai`)
-
-If the app record is missing, `eas submit` may fail until it's created.
-
-### Build for TestFlight (run in PowerShell on your PC)
-
-Your project files aren't committed to git yet, so use `EAS_NO_VCS=1` so EAS uploads **all** current code (search fix, design, attachments, etc.):
-
-```powershell
-cd C:\Users\vedan\privateaiapp
-$env:EAS_NO_VCS=1
+```bash
+cd ~/Developer/privateaiapp
 npx eas build --platform ios --profile production
-```
-
-**First production build only** — EAS will ask:
-
-| Prompt | Choose |
-|--------|--------|
-| Apple account | Your Apple ID (the one Martin added to the team) |
-| Team | **Neocast Inc.** (`749YZ5JL3X`) |
-| Credentials | **Let EAS handle credentials** (creates App Store distribution cert) |
-
-Wait ~15–25 minutes. Build number auto-increments (already bumped to **2**).
-
-### Submit to TestFlight
-
-When the build finishes:
-
-```powershell
 npx eas submit --platform ios --latest
 ```
 
-Or submit a specific build:
+Then: App Store Connect → TestFlight → Internal Testing → add your Apple ID →
+install via the TestFlight app.
 
-```powershell
-npx eas submit --platform ios --id <BUILD_ID>
-```
-
-Sign in with the same Apple ID. Pick the **Private AI** app in App Store Connect when prompted.
-
-### Install on your iPhone
-
-1. Install **TestFlight** from the App Store (if you don't have it).
-2. Martin (or you, if you're on the team) opens [App Store Connect](https://appstoreconnect.apple.com) → your app → **TestFlight** → **Internal Testing**.
-3. Add the new build to the internal group and add your Apple ID email as a tester.
-4. You get an email invite → open in TestFlight → **Install**.
-
-Internal testers (people on the developer team) usually get the build within minutes — no beta review.
-
-### Optional: commit before future builds
-
-So you don't need `EAS_NO_VCS=1` every time:
-
-```powershell
-git add .
-git commit -m "Private AI v1.0 — chat, web search, attachments"
-```
-
-Then `npx eas build --platform ios --profile production` works normally.
+Full money-path + store-listing checklist: **`LAUNCH.md`** (do that next —
+most of "finishing" the app is account config, not more code).
 
 ---
 
-## TestFlight / App Store (quick reference)
+## Mac-only gotchas (first-time iOS)
 
-```powershell
-$env:EAS_NO_VCS=1
-npm run build:ios:prod
+- **Signing lives in the cloud with EAS** if you pick "Let EAS handle it". You
+  rarely open Xcode → Signing & Capabilities for this project.
+- **Simulator**: optional. Prefer a real iPhone for StoreKit sandbox, Face ID,
+  Dynamic Island, and Share Extension.
+- **Same Wi‑Fi**: if the Expo QR fails, press `s` in the Expo terminal to switch
+  to tunnel mode, or run `npx expo start --tunnel`.
+- **EAS free tier**: 15 builds/month. Batch native changes; JS-only changes do
+  not need a new native build (OTA / reload is enough in Expo Go / dev client).
+- Do **not** use the old Windows `EAS_NO_VCS=1` workaround — the repo is on git;
+  commit before production builds so EAS uploads what you think it uploads.
+
+---
+
+## Quick command card
+
+```bash
+npm install                          # after pull
+npm start                            # Expo Go / Metro
+npx tsc --noEmit && npm run lint && npm test
+npx eas build --platform ios --profile development
+npx eas build --platform ios --profile production
 npx eas submit --platform ios --latest
+cd worker && npx wrangler dev        # local search Worker (optional)
 ```
 
-## Troubleshooting
-
-| Problem | Fix |
-|---------|-----|
-| "No team found" | Accept Apple's invite; sign in with the correct Apple ID |
-| "Bundle ID not available" | Pick another ID in `app.config.js` + `ios/.../project.pbxproj`, or register `com.privateai.app` in Developer portal |
-| "Device not in profile" | Run `npx eas device:create` again, then rebuild |
-| Build fails on native code | Check build logs at [expo.dev](https://expo.dev) → your project → Builds |
-
----
-
-## Quick command reference
-
-```powershell
-npx eas login              # Log into Expo
-npx eas device:create        # Register iPhone
-npm run build:ios            # Cloud build → install on phone
-npx eas build:list           # See past builds
-```
+Architecture, env vars, and gotchas: **`CLAUDE.md`**.  
+Public launch (IAP + ASC + RevenueCat): **`LAUNCH.md`**.  
+Store listing paste: **`store/LISTING.md`**.
