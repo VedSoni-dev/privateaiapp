@@ -1,5 +1,7 @@
 import SwiftUI
 
+/// Root composition root — owns long-lived stores (chat, memory, usage, lock, speech).
+/// Agent turns are prepared by `AgentService` / `AgentPromptBuilder`; memory is ranked by `MemoryStore`.
 @MainActor
 @Observable
 final class AppModel {

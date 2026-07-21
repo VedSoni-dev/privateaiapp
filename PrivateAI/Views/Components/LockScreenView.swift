@@ -7,13 +7,9 @@ struct LockScreenView: View {
         let colors = app.theme.colors
         let unlockTitle = "Unlock with \(app.lock.biometryLabel)"
         ZStack {
-            colors.canvas.ignoresSafeArea()
+            BrandCanvas(colors: colors)
             VStack(spacing: 20) {
-                Image(systemName: "lock.shield.fill")
-                    .font(.largeTitle)
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(colors.accent)
-                    .accessibilityHidden(true)
+                BrandMark(size: 72)
                 Text("Private AI")
                     .font(.title.bold())
                     .foregroundStyle(colors.textPrimary)

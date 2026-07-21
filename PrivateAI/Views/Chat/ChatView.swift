@@ -11,7 +11,6 @@ struct ChatView: View {
     var body: some View {
         NavigationStack {
             chatBody
-                .navigationTitle("Private AI")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { toolbarContent }
                 .modifier(ChatSheetsModifier(
@@ -59,7 +58,7 @@ struct ChatView: View {
                 composer(colors: colors)
             }
         }
-        .background(colors.canvas.ignoresSafeArea())
+        .background { BrandCanvas(colors: colors) }
     }
 
     @ToolbarContentBuilder
@@ -74,6 +73,15 @@ struct ChatView: View {
                     .background(app.theme.colors.accentSoft.opacity(0.12), in: Capsule())
                     .accessibilityLabel("Ghost chat, not saved")
             }
+        }
+        ToolbarItem(placement: .principal) {
+            HStack(spacing: 8) {
+                BrandMark(size: 28)
+                Text("Private AI")
+                    .font(.headline.weight(.semibold))
+            }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Private AI")
         }
         ToolbarItem(placement: .topBarTrailing) {
             Button {
@@ -181,17 +189,13 @@ struct ChatView: View {
 
     private func emptyState(colors: AppColors) -> some View {
         VStack(alignment: .leading, spacing: 22) {
-            VStack(alignment: .leading, spacing: 8) {
-                Image(systemName: "waveform.circle.fill")
-                    .font(.title)
-                    .foregroundStyle(colors.accent)
-                    .symbolRenderingMode(.hierarchical)
-                    .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 12) {
+                BrandMark(size: 56)
                 Text("Ask anything.\nPrivately.")
                     .font(.largeTitle.bold())
                     .foregroundStyle(colors.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
-                Text("Speak replies, tap follow-ups, or say “Ask Private AI” to Siri.")
+                Text("Confidential-compute answers. Memory you control. Speak replies or ask Siri.")
                     .font(.subheadline)
                     .foregroundStyle(colors.textSecondary)
             }

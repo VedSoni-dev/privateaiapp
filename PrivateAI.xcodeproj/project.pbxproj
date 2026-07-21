@@ -10,6 +10,7 @@
 		04EA5BA6259E97D8103662EF /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A11F98D64D3FEB2B3CF3C90 /* OnboardingView.swift */; };
 		07CA8FD6661B4E4ACB2086EA /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 684FA882C7145B4453837208 /* RootView.swift */; };
 		0D78B7A0FB948E224000F79F /* ComposerBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 670C224BCD6815A25DFC13BF /* ComposerBar.swift */; };
+		0FA9CC999CE60261DC2A7AD8 /* BrandMark.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6FA868F2100C51A44FDE700 /* BrandMark.swift */; };
 		110254A44E2727467F628A86 /* WebSearchService.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE2BAD1C9A65961FF8557EE9 /* WebSearchService.swift */; };
 		147FA9A3B81610DEBC922263 /* PurchaseStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50AEBB99336DC2E4D3277591 /* PurchaseStore.swift */; };
 		1F68CAD3FF67F87645A0D837 /* LockScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F54B7E33827ECAD15D55A423 /* LockScreenView.swift */; };
@@ -116,6 +117,7 @@
 		C52742760BEA2E842757C089 /* PrivateAIWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = PrivateAIWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		C6DB91892B7E996953DED827 /* LiveActivityController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveActivityController.swift; sourceTree = "<group>"; };
 		C9BAB4A5F43B6532F4FCCC01 /* AskPrivateAIIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AskPrivateAIIntent.swift; sourceTree = "<group>"; };
+		D6FA868F2100C51A44FDE700 /* BrandMark.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BrandMark.swift; sourceTree = "<group>"; };
 		D7CF4A60BDE49651B39406F0 /* ChatStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatStore.swift; sourceTree = "<group>"; };
 		D84D274AB51816E1B5A03116 /* ChatModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatModels.swift; sourceTree = "<group>"; };
 		D924CF715112115A188513C4 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -289,6 +291,7 @@
 			isa = PBXGroup;
 			children = (
 				44013F3CAC1233139701B381 /* AppColors.swift */,
+				D6FA868F2100C51A44FDE700 /* BrandMark.swift */,
 				64C508676BCB9F34D3E68873 /* ThemeStore.swift */,
 			);
 			path = Theme;
@@ -449,6 +452,7 @@
 				4AB54A57843AFBB797969D7C /* AppModel.swift in Sources */,
 				29C67DFB6D02539013EF6244 /* AskPrivateAIIntent.swift in Sources */,
 				3D1DA86F903AE439E7BEEE45 /* BackendClient.swift in Sources */,
+				0FA9CC999CE60261DC2A7AD8 /* BrandMark.swift in Sources */,
 				872B885EED3B15D6386084CC /* CalendarService.swift in Sources */,
 				DBEA5E863883885BAF3EC4F5 /* ChatModels.swift in Sources */,
 				EE9C0F6A37A14A4E5AF5181B /* ChatStore.swift in Sources */,

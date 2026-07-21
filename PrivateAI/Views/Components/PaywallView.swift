@@ -9,11 +9,7 @@ struct PaywallView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 18) {
-                    Image(systemName: "shield.checkered")
-                        .font(.largeTitle)
-                        .symbolRenderingMode(.hierarchical)
-                        .foregroundStyle(colors.accent)
-                        .accessibilityHidden(true)
+                    BrandMark(size: 72)
 
                     Text("Go Pro")
                         .font(.largeTitle.bold())

@@ -17,13 +17,15 @@
 - Dynamic Type on paywall price
 - **Siri-like messages**: Speak/Stop (AVSpeech), action row, follow-up chips,
   App Shortcuts (new chat / ghost / speak last answer)
+- **Brand**: ink + teal identity, app icon, `BrandMark` / `BrandCanvas`
+- **Memory v2**: categories, pin, learn toggle, ranked injection, dedupe
+- **Agent prompt layers**: `AgentPromptBuilder` (persona / clock / memory / search)
 
 ## Still open (priority)
 
 1. Richer markdown (fenced code, tables)
 2. Quota-reset local notification
-3. App icon in asset catalog (`_legacy_expo/assets/icon-1024.png`)
-4. XCUITest + device Accessibility Nutrition Labels
-5. ASC + RevenueCat webhook account config (`LAUNCH.md`)
-6. Optional: typed App Entity for “Ask Private AI {question}” Siri phrases
-7. Segmented Private/Web picker if chips still feel small on device
+3. XCUITest + device Accessibility Nutrition Labels
+4. ASC + RevenueCat webhook account config (`LAUNCH.md`)
+5. Optional: typed App Entity for “Ask Private AI {question}” Siri phrases
+6. Segmented Private/Web picker if chips still feel small on device

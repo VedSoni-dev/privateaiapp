@@ -14,6 +14,12 @@ struct SettingsView: View {
 
         NavigationStack {
             List {
+                Section {
+                    BrandMark(size: 52, showsWordmark: true)
+                        .listRowBackground(Color.clear)
+                        .padding(.vertical, 4)
+                }
+
                 Section("Chats") {
                     Button {
                         app.chat.newChat()
@@ -86,9 +92,18 @@ struct SettingsView: View {
                             showMemory = true
                         }
                     } label: {
-                        Label("What AI remembers", systemImage: "brain.head.profile")
+                        HStack {
+                            Label("What AI remembers", systemImage: "brain.head.profile")
+                            Spacer()
+                            Text("\(app.memory.facts.count)")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(colors.textMuted)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(colors.elevated, in: Capsule())
+                        }
                     }
-                    .accessibilityLabel("What AI remembers about you")
+                    .accessibilityLabel("What AI remembers about you, \(app.memory.facts.count) facts")
 
                     Toggle(isOn: Binding(
                         get: { app.lock.isEnabled },
@@ -179,32 +194,92 @@ struct SettingsView: View {
 struct MemoryView: View {
     @Environment(AppModel.self) private var app
     @Environment(\.dismiss) private var dismiss
+    @State private var draft = ""
+    @State private var showAdd = false
 
     var body: some View {
+        @Bindable var app = app
+        let colors = app.theme.colors
+
         NavigationStack {
             Group {
-                if app.memory.facts.isEmpty {
-                    ContentUnavailableView(
-                        "No memories yet",
-                        systemImage: "brain",
-                        description: Text("Facts Private AI learns will show up here. You can forget any of them.")
-                    )
+                if app.memory.facts.isEmpty && !showAdd {
+                    ContentUnavailableView {
+                        Label("No memories yet", systemImage: "brain.head.profile")
+                    } description: {
+                        Text("Private AI can learn durable facts from chats, or you can add them yourself. Ghost chats never teach memory.")
+                    } actions: {
+                        Button("Add a fact") { showAdd = true }
+                    }
                 } else {
                     List {
-                        ForEach(app.memory.facts) { fact in
-                            Text(fact.text)
-                                .swipeActions {
-                                    Button("Forget", role: .destructive) {
-                                        app.memory.forget(fact.id)
-                                    }
-                                    .accessibilityLabel("Forget: \(fact.text)")
+                        Section {
+                            Toggle(isOn: $app.memory.learningEnabled) {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Learn from chats")
+                                    Text("Extracts durable facts in the background. You can forget any of them.")
+                                        .font(.caption)
+                                        .foregroundStyle(colors.textMuted)
                                 }
+                            }
+                            .accessibilityLabel("Learn from chats")
+                        }
+
+                        ForEach(app.memory.groupedFacts, id: \.0) { category, items in
+                            Section {
+                                ForEach(items) { fact in
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text(fact.text)
+                                            .foregroundStyle(colors.textPrimary)
+                                        HStack(spacing: 8) {
+                                            if fact.pinned {
+                                                Label("Pinned", systemImage: "pin.fill")
+                                                    .font(.caption2.weight(.semibold))
+                                                    .foregroundStyle(colors.accent)
+                                            }
+                                            Text(sourceLabel(fact.source))
+                                                .font(.caption2)
+                                                .foregroundStyle(colors.textMuted)
+                                        }
+                                    }
+                                    .swipeActions(edge: .trailing) {
+                                        Button("Forget", role: .destructive) {
+                                            app.memory.forget(fact.id)
+                                        }
+                                    }
+                                    .swipeActions(edge: .leading) {
+                                        Button(fact.pinned ? "Unpin" : "Pin") {
+                                            app.memory.togglePin(fact.id)
+                                        }
+                                        .tint(colors.accent)
+                                    }
+                                    .contextMenu {
+                                        Button(fact.pinned ? "Unpin" : "Pin", systemImage: "pin") {
+                                            app.memory.togglePin(fact.id)
+                                        }
+                                        Button("Forget", systemImage: "trash", role: .destructive) {
+                                            app.memory.forget(fact.id)
+                                        }
+                                    }
+                                    .accessibilityLabel("\(category.title): \(fact.text)")
+                                }
+                            } header: {
+                                Label(category.title, systemImage: category.systemImage)
+                            }
                         }
                     }
                 }
             }
             .navigationTitle("Memory")
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        showAdd = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityLabel("Add memory")
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
                         .accessibilityLabel("Close")
@@ -218,6 +293,24 @@ struct MemoryView: View {
                     }
                 }
             }
+            .alert("Add a memory", isPresented: $showAdd) {
+                TextField("e.g. I prefer concise answers", text: $draft)
+                Button("Save") {
+                    app.memory.add(draft, source: .manual)
+                    draft = ""
+                }
+                Button("Cancel", role: .cancel) { draft = "" }
+            } message: {
+                Text("Stored on this device. Used only when relevant.")
+            }
+        }
+    }
+
+    private func sourceLabel(_ source: MemorySource) -> String {
+        switch source {
+        case .manual: return "Added by you"
+        case .localLearn: return "Learned on-device"
+        case .cloudLearn: return "Learned from chat"
         }
     }
 }
