@@ -6,6 +6,7 @@ struct ChatView: View {
     @State private var input = ""
     @State private var showSettings = false
     @State private var showMemory = false
+    @State private var showPrivacy = false
     @FocusState private var inputFocused: Bool
 
     var body: some View {
@@ -16,7 +17,8 @@ struct ChatView: View {
                 .modifier(ChatSheetsModifier(
                     app: app,
                     showSettings: $showSettings,
-                    showMemory: $showMemory
+                    showMemory: $showMemory,
+                    showPrivacy: $showPrivacy
                 ))
                 .modifier(ChatAlertsModifier(chat: app.chat))
                 .onReceive(NotificationCenter.default.publisher(for: .shareExtensionText)) { note in
@@ -89,13 +91,24 @@ struct ChatView: View {
             }
         }
         ToolbarItem(placement: .principal) {
-            HStack(spacing: 8) {
-                BrandMark(size: 28)
-                Text("Private AI")
-                    .font(.headline.weight(.semibold))
+            Button {
+                Haptics.light()
+                showPrivacy = true
+            } label: {
+                HStack(spacing: 8) {
+                    BrandMark(size: 28)
+                    VStack(alignment: .leading, spacing: 0) {
+                        Text("Private AI")
+                            .font(.headline.weight(.semibold))
+                        Text("No account · Locked chat")
+                            .font(.caption2)
+                            .foregroundStyle(app.theme.colors.textMuted)
+                    }
+                }
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("Private AI")
+            .buttonStyle(.plain)
+            .accessibilityLabel("Private AI. How privacy works")
+            .accessibilityHint("Opens privacy explanation")
         }
         ToolbarItem(placement: .topBarTrailing) {
             Button {
@@ -112,15 +125,9 @@ struct ChatView: View {
 
     @ViewBuilder
     private func statusLine(colors: AppColors) -> some View {
-        if let status = app.chat.statusText {
-            Text(status)
-                .font(.caption.weight(.medium))
-                .foregroundStyle(colors.accent)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.horizontal, 20)
-                .padding(.vertical, 6)
-                .accessibilityLabel(status)
-        }
+        ThinkingStatusView(text: app.chat.statusText, colors: colors)
+            .padding(.horizontal, 20)
+            .padding(.vertical, 4)
     }
 
     private func composer(colors: AppColors) -> some View {
@@ -148,7 +155,7 @@ struct ChatView: View {
         let messages = app.chat.currentMessages
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 16) {
+                LazyVStack(alignment: .leading, spacing: 20) {
                     if messages.isEmpty && app.chat.streamingText.isEmpty {
                         emptyState(colors: colors)
                     }
@@ -181,7 +188,7 @@ struct ChatView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
-                .padding(.bottom, 160)
+                .padding(.bottom, 168)
             }
             .onChange(of: messages.count) { _, _ in
                 guard let id = messages.last?.id.uuidString else { return }
@@ -200,16 +207,24 @@ struct ChatView: View {
     }
 
     private func emptyState(colors: AppColors) -> some View {
-        VStack(alignment: .leading, spacing: 22) {
-            VStack(alignment: .leading, spacing: 12) {
-                BrandMark(size: 56)
+        VStack(alignment: .leading, spacing: 24) {
+            VStack(alignment: .leading, spacing: 14) {
+                BrandMark(size: 64)
                 Text("Ask anything.\nPrivately.")
                     .font(.largeTitle.bold())
                     .foregroundStyle(colors.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
-                Text("Confidential-compute answers. Memory you control. Always private.")
+                Text("No account. Confidential-compute answers. Memory you can erase.")
                     .font(.subheadline)
                     .foregroundStyle(colors.textSecondary)
+                TrustSealRow(colors: colors)
+                Button {
+                    showPrivacy = true
+                } label: {
+                    Label("How we keep this private", systemImage: "lock.shield.fill")
+                        .font(.subheadline.weight(.semibold))
+                }
+                .tint(colors.accent)
             }
             VStack(spacing: 8) {
                 ForEach(app.suggestions.chips) { chip in
@@ -217,7 +232,7 @@ struct ChatView: View {
                 }
             }
         }
-        .padding(.top, 28)
+        .padding(.top, 20)
     }
 
     private func suggestion(_ text: String, icon: String, colors: AppColors) -> some View {
@@ -262,6 +277,7 @@ private struct ChatSheetsModifier: ViewModifier {
     @Bindable var app: AppModel
     @Binding var showSettings: Bool
     @Binding var showMemory: Bool
+    @Binding var showPrivacy: Bool
 
     func body(content: Content) -> some View {
         content
@@ -273,6 +289,10 @@ private struct ChatSheetsModifier: ViewModifier {
             }
             .sheet(isPresented: $showMemory) {
                 MemoryView()
+                    .environment(app)
+            }
+            .sheet(isPresented: $showPrivacy) {
+                PrivacyTrustView()
                     .environment(app)
             }
             .sheet(isPresented: Binding(

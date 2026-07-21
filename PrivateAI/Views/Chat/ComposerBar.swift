@@ -88,7 +88,7 @@ struct ComposerBar: View {
                 .accessibilityLabel("Upgrade to Pro")
             }
             Spacer(minLength: 8)
-            Text("Private · AI can make mistakes")
+            Text("Private · No account · AI can err")
                 .font(.caption2)
                 .foregroundStyle(colors.textMuted)
         }

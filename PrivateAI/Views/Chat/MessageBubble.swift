@@ -35,17 +35,23 @@ struct MessageBubble: View {
                     }
                 }
                 .textSelection(.enabled)
-                .padding(.horizontal, isUser ? 14 : 0)
-                .padding(.vertical, isUser ? 10 : 0)
+                .padding(.horizontal, isUser ? 14 : 14)
+                .padding(.vertical, isUser ? 10 : 12)
                 .background {
                     if isUser {
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
-                            .fill(colors.elevated)
+                            .fill(colors.accent.opacity(0.12))
                             .overlay {
                                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                    .stroke(colors.accent.opacity(0.18), lineWidth: 1)
+                                    .stroke(colors.accent.opacity(0.22), lineWidth: 1)
                             }
-                            .shadow(color: colors.accent.opacity(0.08), radius: 8, y: 2)
+                    } else if !message.isError {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .fill(colors.elevated.opacity(0.72))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                    .stroke(colors.border.opacity(0.55), lineWidth: 1)
+                            }
                     }
                 }
 

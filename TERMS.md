@@ -1,6 +1,6 @@
 # Private AI — Terms of Use
 
-_Last updated: July 16, 2026_
+_Last updated: July 21, 2026_
 
 By using Private AI, you agree to these terms.
 

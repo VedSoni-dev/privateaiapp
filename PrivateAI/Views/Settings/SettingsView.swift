@@ -7,6 +7,7 @@ struct SettingsView: View {
     @State private var confirmErase = false
     @State private var renameId: UUID?
     @State private var renameText = ""
+    @State private var showPrivacy = false
 
     var body: some View {
         @Bindable var app = app
@@ -15,9 +16,29 @@ struct SettingsView: View {
         NavigationStack {
             List {
                 Section {
-                    BrandMark(size: 52, showsWordmark: true)
-                        .listRowBackground(Color.clear)
-                        .padding(.vertical, 4)
+                    VStack(alignment: .leading, spacing: 12) {
+                        BrandMark(size: 52, showsWordmark: true)
+                        TrustSealRow(colors: colors)
+                        Text("No login. Anonymous device ID only. Pro restores through Apple.")
+                            .font(.caption)
+                            .foregroundStyle(colors.textMuted)
+                    }
+                    .listRowBackground(Color.clear)
+                    .padding(.vertical, 4)
+                }
+
+                Section("Trust & legal") {
+                    Button {
+                        showPrivacy = true
+                    } label: {
+                        Label("How privacy works", systemImage: "lock.shield.fill")
+                    }
+                    Link(destination: Legal.privacyURL) {
+                        Label("Privacy Policy", systemImage: "doc.text")
+                    }
+                    Link(destination: Legal.termsURL) {
+                        Label("Terms of Use", systemImage: "doc.plaintext")
+                    }
                 }
 
                 Section("Chats") {
@@ -215,6 +236,10 @@ struct SettingsView: View {
                     renameId = nil
                 }
                 Button("Cancel", role: .cancel) { renameId = nil }
+            }
+            .sheet(isPresented: $showPrivacy) {
+                PrivacyTrustView()
+                    .environment(app)
             }
         }
     }

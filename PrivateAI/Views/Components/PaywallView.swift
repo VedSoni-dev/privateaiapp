@@ -15,10 +15,12 @@ struct PaywallView: View {
                         .font(.largeTitle.bold())
                         .foregroundStyle(colors.textPrimary)
 
-                    Text("Unlimited messages. Same confidential-compute privacy. Cancel anytime in Settings → Apple ID → Subscriptions.")
+                    Text("Unlimited messages. Same confidential-compute privacy. Still no account — Pro restores with Apple.")
                         .font(.body)
                         .foregroundStyle(colors.textSecondary)
                         .multilineTextAlignment(.center)
+
+                    TrustSealRow(colors: colors)
 
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                         Text(app.purchases.priceString)
@@ -70,6 +72,11 @@ struct PaywallView: View {
                     Button("Maybe later") { dismiss() }
                         .foregroundStyle(colors.textMuted)
                         .accessibilityLabel("Maybe later, continue with the free plan")
+
+                    Text("Cancel anytime in Settings → Apple ID → Subscriptions.")
+                        .font(.caption2)
+                        .foregroundStyle(colors.textMuted)
+                        .multilineTextAlignment(.center)
 
                     if let err = app.purchases.lastError {
                         Text(err)

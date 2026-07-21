@@ -1,6 +1,6 @@
 # Private AI — Privacy Policy
 
-_Last updated: July 8, 2026_
+_Last updated: July 21, 2026_
 
 Private AI is built so that we know as little about you as possible.
 
@@ -19,11 +19,13 @@ Private AI is built so that we know as little about you as possible.
   (Privatemode), designed so that message content is encrypted in use and not
   readable by us or the infrastructure provider. Messages are not stored after
   the response is generated and are not used to train models.
-- **Web search queries** (when Web mode is on and a search is needed) are sent
-  to our search service to fetch results. Queries are not tied to your identity.
+- **Live lookups** (only when an answer needs fresh facts like news or scores) may
+  send a short query to our search service. Lookups are not framed as leaving
+  private mode, are not tied to your name or email, and are not used to build a
+  profile.
 - **A random device identifier.** Generated on install, used solely to enforce
   daily free-tier limits and rate limits. It contains no personal information
-  and cannot be linked to you.
+  and cannot be linked to you by name.
 
 ## What we don't do
 

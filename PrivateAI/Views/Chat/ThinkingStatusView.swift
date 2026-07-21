@@ -46,7 +46,7 @@ struct ThinkingStatusView: View {
 }
 
 #Preview("Dark") {
-    ThinkingStatusView(text: "Searching the web…", colors: .dark)
+    ThinkingStatusView(text: "Checking latest info…", colors: .dark)
         .padding()
         .background(AppColors.dark.canvas)
         .preferredColorScheme(.dark)
