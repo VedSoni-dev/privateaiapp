@@ -23,14 +23,15 @@ struct ComposerBar: View {
             modePicker
 
             HStack(alignment: .bottom, spacing: 10) {
-                TextField("Message", text: $input, axis: .vertical)
+                TextField("Ask privately…", text: $input, axis: .vertical)
                     .textFieldStyle(.plain)
                     .font(.body)
                     .lineLimit(1...6)
                     .focused(inputFocused)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
-                    .accessibilityLabel("Message input")
+                    .accessibilityLabel("Ask Private AI")
+                    .accessibilityHint("Type a question, or use Dictation from the keyboard")
 
                 sendOrStop
             }

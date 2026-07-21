@@ -15,6 +15,8 @@
   (no Combine `ObservableObject` / `@Published` / `@EnvironmentObject`)
 - Appearance: System / Light / Dark; biometry-aware lock copy
 - Dynamic Type on paywall price
+- **Siri-like messages**: Speak/Stop (AVSpeech), action row, follow-up chips,
+  App Shortcuts (new chat / ghost / speak last answer)
 
 ## Still open (priority)
 

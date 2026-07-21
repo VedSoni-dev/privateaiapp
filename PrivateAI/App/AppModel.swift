@@ -10,6 +10,7 @@ final class AppModel {
     var memory: MemoryStore
     var lock: AppLockStore
     var purchases: PurchaseStore
+    var speech: SpeechService
 
     let deviceId: String
 
@@ -21,6 +22,7 @@ final class AppModel {
         self.chat = ChatStore()
         self.lock = AppLockStore()
         self.purchases = PurchaseStore()
+        self.speech = SpeechService()
         self.hasCompletedOnboarding = UserDefaults.standard.bool(forKey: "onboarding_done")
 
         purchases.start(deviceId: deviceId, usage: usage)

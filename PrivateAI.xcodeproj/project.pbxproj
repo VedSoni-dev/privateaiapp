@@ -14,6 +14,7 @@
 		147FA9A3B81610DEBC922263 /* PurchaseStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50AEBB99336DC2E4D3277591 /* PurchaseStore.swift */; };
 		1F68CAD3FF67F87645A0D837 /* LockScreenView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F54B7E33827ECAD15D55A423 /* LockScreenView.swift */; };
 		1FA9F52B1BF5A0B18564D3D0 /* MemoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7506B69DD4FA545314155839 /* MemoryStore.swift */; };
+		27DC4A4F7C8C1DDD84ABCC3B /* SpeechService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3639AA3D99686E2CD65859BB /* SpeechService.swift */; };
 		29C67DFB6D02539013EF6244 /* AskPrivateAIIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9BAB4A5F43B6532F4FCCC01 /* AskPrivateAIIntent.swift */; };
 		2AE4D37B35535C7D4B75679E /* UsageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F142C15404275BD333B83121 /* UsageStore.swift */; };
 		31E418432027E264C1034CFC /* LiveActivityController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C6DB91892B7E996953DED827 /* LiveActivityController.swift */; };
@@ -45,6 +46,7 @@
 		DC62E75DD4928D1D2D886A6C /* PaywallView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A86A95B9B99ABE7ABB9FC20 /* PaywallView.swift */; };
 		DDA1B9EE85DEE153B9F001EA /* ShareExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = FC70214413B6397967023534 /* ShareExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		E090CEB1C39E0261E6CFDE54 /* RevenueCatUI in Frameworks */ = {isa = PBXBuildFile; productRef = 5E9E23B5FE0CDF00D65AC45B /* RevenueCatUI */; };
+		E57407FA67EB6887EA52F303 /* FollowUpSuggestions.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCB03206F0A947885B50B975 /* FollowUpSuggestions.swift */; };
 		EE9C0F6A37A14A4E5AF5181B /* ChatStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7CF4A60BDE49651B39406F0 /* ChatStore.swift */; };
 		F66CE64A98038CAE51E39A59 /* AppColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44013F3CAC1233139701B381 /* AppColors.swift */; };
 		F9EE0598E2BC19B1D2D9AAEA /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49371B723555DDF16D5607AD /* SettingsView.swift */; };
@@ -90,6 +92,7 @@
 		22FD1B0CB1ADFF69AFBE38C5 /* icon-1024.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "icon-1024.png"; sourceTree = "<group>"; };
 		25E984E893C3BF92D623A17E /* Legal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Legal.swift; sourceTree = "<group>"; };
 		2F222E783F255FB92730AF15 /* PrivateAI.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = PrivateAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3639AA3D99686E2CD65859BB /* SpeechService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechService.swift; sourceTree = "<group>"; };
 		44013F3CAC1233139701B381 /* AppColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppColors.swift; sourceTree = "<group>"; };
 		44A8C4703D47B815632C0C50 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		49371B723555DDF16D5607AD /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -107,6 +110,7 @@
 		7506B69DD4FA545314155839 /* MemoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemoryStore.swift; sourceTree = "<group>"; };
 		9754DC1EBC27DDC167A2E57A /* AnswerLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnswerLiveActivity.swift; sourceTree = "<group>"; };
 		B1ED6E177AAEF0E40A091E34 /* AppLockStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLockStore.swift; sourceTree = "<group>"; };
+		BCB03206F0A947885B50B975 /* FollowUpSuggestions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FollowUpSuggestions.swift; sourceTree = "<group>"; };
 		BE2BAD1C9A65961FF8557EE9 /* WebSearchService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebSearchService.swift; sourceTree = "<group>"; };
 		C05D9CACA5EDFE3F2386AD2F /* AnswerActivityAttributes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnswerActivityAttributes.swift; sourceTree = "<group>"; };
 		C52742760BEA2E842757C089 /* PrivateAIWidget.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = PrivateAIWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -224,11 +228,13 @@
 				5DE2E42BCB7962725C3E002A /* CalendarService.swift */,
 				D7CF4A60BDE49651B39406F0 /* ChatStore.swift */,
 				EE0E2780C4E8346A983FD9D2 /* DeviceID.swift */,
+				BCB03206F0A947885B50B975 /* FollowUpSuggestions.swift */,
 				083378EBC19A567733C01C2C /* Haptics.swift */,
 				C6DB91892B7E996953DED827 /* LiveActivityController.swift */,
 				1AEA5BCC4EBC21A1D0182738 /* MemoryLearning.swift */,
 				7506B69DD4FA545314155839 /* MemoryStore.swift */,
 				50AEBB99336DC2E4D3277591 /* PurchaseStore.swift */,
+				3639AA3D99686E2CD65859BB /* SpeechService.swift */,
 				F142C15404275BD333B83121 /* UsageStore.swift */,
 				BE2BAD1C9A65961FF8557EE9 /* WebSearchService.swift */,
 			);
@@ -449,6 +455,7 @@
 				731548D56F11722D8FE9E4D1 /* ChatView.swift in Sources */,
 				0D78B7A0FB948E224000F79F /* ComposerBar.swift in Sources */,
 				847E759AA8ABCB4A9E976F92 /* DeviceID.swift in Sources */,
+				E57407FA67EB6887EA52F303 /* FollowUpSuggestions.swift in Sources */,
 				4FEA2B3E8D69CA78289E7BED /* Haptics.swift in Sources */,
 				A019859D6A40903CC637B996 /* Legal.swift in Sources */,
 				31E418432027E264C1034CFC /* LiveActivityController.swift in Sources */,
@@ -463,6 +470,7 @@
 				07CA8FD6661B4E4ACB2086EA /* RootView.swift in Sources */,
 				F9EE0598E2BC19B1D2D9AAEA /* SettingsView.swift in Sources */,
 				C0D763FFC862579F99D95BAA /* ShareCardView.swift in Sources */,
+				27DC4A4F7C8C1DDD84ABCC3B /* SpeechService.swift in Sources */,
 				8A6E299869FEFCBEB815ED6F /* ThemeStore.swift in Sources */,
 				8FEF945D1DF87B6231E6CDF3 /* ThinkingStatusView.swift in Sources */,
 				2AE4D37B35535C7D4B75679E /* UsageStore.swift in Sources */,

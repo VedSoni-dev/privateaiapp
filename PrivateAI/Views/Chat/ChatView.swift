@@ -32,6 +32,19 @@ struct ChatView: View {
                         send()
                     }
                 }
+                .onReceive(NotificationCenter.default.publisher(for: .siriNewChat)) { note in
+                    let ghost = (note.object as? Bool) ?? false
+                    app.speech.stop()
+                    app.chat.newChat(ghost: ghost)
+                    input = ""
+                    inputFocused = true
+                }
+                .onReceive(NotificationCenter.default.publisher(for: .siriSpeakLast)) { _ in
+                    guard let last = app.chat.currentMessages.last(where: { $0.role == .assistant }),
+                          !last.content.isEmpty
+                    else { return }
+                    app.speech.speak(last.content, messageId: last.id)
+                }
         }
     }
 
@@ -101,6 +114,7 @@ struct ChatView: View {
             onSend: send,
             onStop: {
                 Haptics.light()
+                app.speech.stop()
                 app.chat.stop()
             },
             onUpgrade: { app.chat.showPaywall = true }
@@ -120,8 +134,19 @@ struct ChatView: View {
                     }
                     ForEach(Array(messages.enumerated()), id: \.element.id) { index, message in
                         let prevUser = messages[..<index].last(where: { $0.role == .user })?.content ?? ""
-                        MessageBubble(message: message, previousUserText: prevUser)
-                            .id(message.id.uuidString)
+                        let isLatestAssistant = message.role == .assistant
+                            && message.id == messages.last(where: { $0.role == .assistant })?.id
+                            && app.chat.streamingText.isEmpty
+                        MessageBubble(
+                            message: message,
+                            previousUserText: prevUser,
+                            isLatestAssistant: isLatestAssistant,
+                            onFollowUp: { prompt in
+                                input = prompt
+                                send()
+                            }
+                        )
+                        .id(message.id.uuidString)
                     }
                     if !app.chat.streamingText.isEmpty {
                         MessageBubble(
@@ -157,7 +182,7 @@ struct ChatView: View {
     private func emptyState(colors: AppColors) -> some View {
         VStack(alignment: .leading, spacing: 22) {
             VStack(alignment: .leading, spacing: 8) {
-                Image(systemName: "shield.fill")
+                Image(systemName: "waveform.circle.fill")
                     .font(.title)
                     .foregroundStyle(colors.accent)
                     .symbolRenderingMode(.hierarchical)
@@ -166,28 +191,30 @@ struct ChatView: View {
                     .font(.largeTitle.bold())
                     .foregroundStyle(colors.textPrimary)
                     .fixedSize(horizontal: false, vertical: true)
-                Text("On-device feel. Confidential-compute answers. No account.")
+                Text("Speak replies, tap follow-ups, or say “Ask Private AI” to Siri.")
                     .font(.subheadline)
                     .foregroundStyle(colors.textSecondary)
             }
             VStack(spacing: 8) {
-                suggestion("What’s the latest on AI regulation?", colors: colors)
-                suggestion("Help me write a careful email", colors: colors)
-                suggestion("Explain a concept simply", colors: colors)
+                suggestion("What’s the latest on AI regulation?", icon: "globe", colors: colors)
+                suggestion("Help me write a careful email", icon: "envelope", colors: colors)
+                suggestion("Explain a concept simply", icon: "lightbulb", colors: colors)
+                suggestion("Plan my week in three priorities", icon: "calendar", colors: colors)
             }
         }
         .padding(.top, 28)
     }
 
-    private func suggestion(_ text: String, colors: AppColors) -> some View {
+    private func suggestion(_ text: String, icon: String, colors: AppColors) -> some View {
         Button {
             Haptics.selection()
             input = text
             send()
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: "sparkle")
+                Image(systemName: icon)
                     .foregroundStyle(colors.accent)
+                    .frame(width: 22, alignment: .center)
                 Text(text)
                     .font(.body)
                     .foregroundStyle(colors.textSecondary)
@@ -209,6 +236,7 @@ struct ChatView: View {
         let text = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         Haptics.medium()
+        app.speech.stop()
         input = ""
         inputFocused = false
         app.chat.send(text, deviceId: app.deviceId, memory: app.memory, usage: app.usage)

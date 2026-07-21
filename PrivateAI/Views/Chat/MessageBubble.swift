@@ -4,10 +4,13 @@ struct MessageBubble: View {
     @Environment(AppModel.self) private var app
     let message: ChatMessage
     var previousUserText: String = ""
+    var isLatestAssistant: Bool = false
+    var onFollowUp: ((String) -> Void)?
 
     var body: some View {
         let colors = app.theme.colors
         let isUser = message.role == .user
+        let isSpeakingThis = app.speech.isSpeaking && app.speech.speakingMessageId == message.id
 
         HStack(alignment: .top, spacing: 0) {
             if isUser { Spacer(minLength: 56) }
@@ -77,14 +80,59 @@ struct MessageBubble: View {
                     }
                     .padding(.top, 2)
                 }
+
+                if !isUser, !message.isError, !message.content.isEmpty {
+                    MessageActionRow(
+                        isSpeaking: isSpeakingThis,
+                        colors: colors,
+                        onSpeak: { app.speech.toggle(message.content, messageId: message.id) },
+                        onCopy: {
+                            UIPasteboard.general.string = message.content
+                            Haptics.success()
+                        },
+                        onShareImage: {
+                            app.chat.shareTarget = ShareCardTarget(
+                                question: previousUserText,
+                                answer: message.content
+                            )
+                        },
+                        onShareText: { presentShare(message.content) },
+                        onAddToCalendar: { CalendarService.presentAddEvent(from: message.content) },
+                        onReport: {
+                            UIApplication.shared.open(Legal.reportContentURL(messageText: message.content))
+                        }
+                    )
+                }
+
+                if isLatestAssistant,
+                   !isUser,
+                   !message.isError,
+                   !app.chat.isGenerating,
+                   !message.content.isEmpty {
+                    FollowUpChipRow(
+                        chips: FollowUpSuggestions.chips(
+                            for: message.content,
+                            question: previousUserText
+                        ),
+                        colors: colors,
+                        onSelect: { prompt in
+                            Haptics.selection()
+                            onFollowUp?(prompt)
+                        }
+                    )
+                }
             }
             .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
             .accessibilityElement(children: .combine)
             .accessibilityLabel(isUser ? "Your message: \(message.content)" : "AI answer: \(message.content)")
-            .contextMenu { messageMenu(isUser: isUser) }
+            .accessibilityAddTraits(isSpeakingThis ? .startsMediaSession : [])
+            .contextMenu { messageMenu(isUser: isUser, isSpeakingThis: isSpeakingThis) }
             .accessibilityAction(named: "Copy") {
                 UIPasteboard.general.string = message.content
                 Haptics.success()
+            }
+            .accessibilityAction(named: isSpeakingThis ? "Stop Speaking" : "Speak") {
+                app.speech.toggle(message.content, messageId: message.id)
             }
             .modifier(AssistantAccessibilityActions(
                 isUser: isUser,
@@ -106,7 +154,10 @@ struct MessageBubble: View {
     }
 
     @ViewBuilder
-    private func messageMenu(isUser: Bool) -> some View {
+    private func messageMenu(isUser: Bool, isSpeakingThis: Bool) -> some View {
+        Button(isSpeakingThis ? "Stop Speaking" : "Speak", systemImage: isSpeakingThis ? "stop.fill" : "speaker.wave.2.fill") {
+            app.speech.toggle(message.content, messageId: message.id)
+        }
         Button("Copy", systemImage: "doc.on.doc") {
             UIPasteboard.general.string = message.content
             Haptics.success()
@@ -136,6 +187,87 @@ struct MessageBubble: View {
            let root = scene.keyWindow?.rootViewController {
             root.present(ac, animated: true)
         }
+    }
+}
+
+/// Compact Siri-like actions under assistant replies.
+private struct MessageActionRow: View {
+    let isSpeaking: Bool
+    let colors: AppColors
+    let onSpeak: () -> Void
+    let onCopy: () -> Void
+    let onShareImage: () -> Void
+    let onShareText: () -> Void
+    let onAddToCalendar: () -> Void
+    let onReport: () -> Void
+
+    var body: some View {
+        HStack(spacing: 4) {
+            actionButton(
+                systemImage: isSpeaking ? "stop.fill" : "speaker.wave.2.fill",
+                label: isSpeaking ? "Stop Speaking" : "Speak",
+                action: onSpeak
+            )
+            actionButton(systemImage: "doc.on.doc", label: "Copy", action: onCopy)
+            actionButton(systemImage: "square.and.arrow.up", label: "Share", action: onShareText)
+            Menu {
+                Button("Share as Image", systemImage: "photo", action: onShareImage)
+                Button("Add to Calendar", systemImage: "calendar.badge.plus", action: onAddToCalendar)
+                Button("Report", systemImage: "exclamationmark.bubble", role: .destructive, action: onReport)
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(colors.textSecondary)
+                    .frame(minWidth: 36, minHeight: 36)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("More actions")
+            Spacer(minLength: 0)
+        }
+        .padding(.top, 2)
+    }
+
+    private func actionButton(systemImage: String, label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(colors.textSecondary)
+                .frame(minWidth: 36, minHeight: 36)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+}
+
+private struct FollowUpChipRow: View {
+    let chips: [FollowUpSuggestions.Chip]
+    let colors: AppColors
+    let onSelect: (String) -> Void
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(chips) { chip in
+                    Button {
+                        onSelect(chip.prompt)
+                    } label: {
+                        Label(chip.title, systemImage: chip.systemImage)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(colors.accent)
+                            .padding(.horizontal, 12)
+                            .frame(minHeight: 36)
+                            .background(colors.accent.opacity(0.10), in: Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(chip.title)
+                    .accessibilityHint(chip.prompt)
+                }
+            }
+            .padding(.vertical, 2)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Suggested follow-ups")
     }
 }
 
@@ -197,7 +329,9 @@ private extension UIWindowScene {
         message: ChatMessage(
             role: .assistant,
             content: "Private AI keeps your prompts in **confidential compute** — nothing is stored for ghost chats."
-        )
+        ),
+        isLatestAssistant: true,
+        onFollowUp: { _ in }
     )
     .padding()
     .background(AppColors.light.canvas)
@@ -210,29 +344,6 @@ private extension UIWindowScene {
     )
     .padding()
     .background(AppColors.light.canvas)
-    .environment(AppModel())
-}
-
-#Preview("Dark") {
-    MessageBubble(
-        message: ChatMessage(role: .assistant, content: "A short private answer.")
-    )
-    .padding()
-    .background(AppColors.dark.canvas)
-    .preferredColorScheme(.dark)
-    .environment(AppModel())
-}
-
-#Preview("XXL Text") {
-    MessageBubble(
-        message: ChatMessage(
-            role: .user,
-            content: "What's the latest news on AI regulation in the European Union this week?"
-        )
-    )
-    .padding()
-    .background(AppColors.light.canvas)
-    .dynamicTypeSize(.accessibility3)
     .environment(AppModel())
 }
 #endif
