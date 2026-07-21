@@ -52,8 +52,9 @@ struct MessageBubble: View {
                             .fill(colors.elevated)
                             .overlay {
                                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                    .stroke(colors.accent.opacity(0.12), lineWidth: 1)
+                                    .stroke(colors.accent.opacity(0.18), lineWidth: 1)
                             }
+                            .shadow(color: colors.accent.opacity(0.08), radius: 8, y: 2)
                     }
                 }
 

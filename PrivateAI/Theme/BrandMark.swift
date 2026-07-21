@@ -1,42 +1,25 @@
 import SwiftUI
 
-/// App mark: shield + waveform — matches the store icon.
+/// Real logo mark (lock-bubble on crimson) + optional wordmark.
 struct BrandMark: View {
     var size: CGFloat = 44
     var showsWordmark: Bool = false
 
     var body: some View {
         HStack(spacing: 10) {
-            ZStack {
-                RoundedRectangle(cornerRadius: size * 0.22, style: .continuous)
-                    .fill(Color(hex: 0x0E1A22))
-                    .frame(width: size, height: size)
-
-                Image(systemName: "shield.fill")
-                    .font(.system(size: size * 0.52, weight: .semibold))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [Color(hex: 0x7AE0CC), Color(hex: 0x2EC4B6)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .symbolRenderingMode(.monochrome)
-                    .overlay {
-                        Image(systemName: "waveform")
-                            .font(.system(size: size * 0.22, weight: .bold))
-                            .foregroundStyle(Color(hex: 0x0E1A22))
-                            .offset(y: size * 0.02)
-                            .accessibilityHidden(true)
-                    }
-            }
-            .accessibilityHidden(true)
+            Image("BrandLogo")
+                .resizable()
+                .scaledToFit()
+                .frame(width: size, height: size)
+                .clipShape(RoundedRectangle(cornerRadius: size * 0.2237, style: .continuous))
+                .shadow(color: Color(hex: 0xB01C2E).opacity(0.28), radius: size * 0.12, y: size * 0.04)
+                .accessibilityHidden(true)
 
             if showsWordmark {
-                VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text("Private AI")
                         .font(.headline.weight(.semibold))
-                    Text("Confidential by design")
+                    Text("Locked chat. Yours only.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
@@ -47,7 +30,7 @@ struct BrandMark: View {
     }
 }
 
-/// Soft depth behind chat / onboarding without flat single-color fills.
+/// Soft crimson wash — echoes the icon’s ruby field without flattening the UI.
 struct BrandCanvas: View {
     let colors: AppColors
 
@@ -56,19 +39,33 @@ struct BrandCanvas: View {
             colors.canvas
             LinearGradient(
                 colors: [
-                    colors.accentSoft.opacity(0.10),
+                    colors.accent.opacity(0.09),
                     .clear,
-                    colors.canvasSecondary.opacity(0.55),
+                    colors.canvasSecondary.opacity(0.65),
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
             RadialGradient(
-                colors: [colors.accent.opacity(0.08), .clear],
+                colors: [
+                    Color(hex: 0xB01C2E).opacity(0.12),
+                    .clear,
+                ],
                 center: .topTrailing,
-                startRadius: 20,
-                endRadius: 420
+                startRadius: 10,
+                endRadius: 380
             )
+            // Frosted “glass” highlight like the logo mark
+            RadialGradient(
+                colors: [
+                    Color.white.opacity(0.35),
+                    .clear,
+                ],
+                center: .topLeading,
+                startRadius: 0,
+                endRadius: 220
+            )
+            .blendMode(.softLight)
         }
         .ignoresSafeArea()
         .accessibilityHidden(true)
