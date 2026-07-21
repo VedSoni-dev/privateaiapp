@@ -84,6 +84,9 @@ or search silently breaks for them).
 
 ## Commands
 
+Mac-first iOS setup (Homebrew, Expo Go, EAS, TestFlight): **BUILD.md**.
+Public launch checklist (ASC + RevenueCat + submit): **LAUNCH.md**.
+
 ```bash
 npm start                 # Expo dev server (Expo Go)
 npx tsc --noEmit          # typecheck — run after any src/ change
@@ -96,9 +99,10 @@ npm run test:api          # backend smoke test against a live server (scripts/te
 cd worker && npx wrangler deploy
 npx wrangler secret put SEARCH_TOKEN   # enable search auth (see caveat above)
 
-# iOS release:
+# iOS (Mac Terminal — see BUILD.md):
+npx eas build --platform ios --profile development   # native modules on device
 npx eas build --platform ios --profile production
-npx eas submit --platform ios
+npx eas submit --platform ios --latest
 ```
 
 ## Production status / open items
@@ -127,16 +131,15 @@ session save AND memory learning, header badge shows "not saved"; panic
 wipe — "Erase everything" clears chats/memory/suggestions but keeps
 device_id (wiping it = fresh-quota loophole), usage, theme, lock setting).
 
-Open, in priority order (full step-by-step: **LAUNCH.md**):
-1. **Real IAP — ALL code is done, config is not**: `PurchaseService.ts`
-   wraps RevenueCat (lazy-required, Expo Go-safe, appUserID = deviceId) and
-   the server validates entitlements via the RevenueCat webhook
-   (`POST /v1/rc-webhook`, auth = `RC_WEBHOOK_AUTH` env, logic + tests in
-   `server/logic.js`: `rcEntitlementUpdates`). Still needed from the user
-   (LAUNCH.md Day 1): App Store Connect agreements + subscription product,
-   RevenueCat project + webhook, paste the `appl_` key into
-   `PurchaseService.ts`, set `RC_WEBHOOK_AUTH` on Render, build. Once live,
-   `ALLOW_CLIENT_PRO` must be deleted.
+Open, in priority order (full step-by-step: **LAUNCH.md**; Mac toolchain: **BUILD.md**):
+1. **Real IAP — code + `appl_` key + App Store id are in-repo; ASC/RC dashboards
+   may still need finishing**: `PurchaseService.ts` wraps RevenueCat
+   (lazy-required, Expo Go-safe, appUserID = deviceId) and the server
+   validates entitlements via `POST /v1/rc-webhook` (`RC_WEBHOOK_AUTH`).
+   Confirm on your Mac/accounts (LAUNCH.md Day 1): Paid Apps agreement,
+   subscription product `pro_monthly`, RevenueCat entitlement `pro` + webhook,
+   `RC_WEBHOOK_AUTH` on Render, delete `ALLOW_CLIENT_PRO`, then production
+   build + on-device money-path test.
 2. Privacy nutrition labels in App Store Connect (policy exists: PRIVACY.md,
    linked from the paywall; guidance in LAUNCH.md Day 2).
 3. Live Activities / Dynamic Island — CODE DONE, unverified until the first

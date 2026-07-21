@@ -13,25 +13,26 @@ A ChatGPT-style mobile assistant that runs in Expo Go. Chat replies are generate
 
 ## Requirements
 
-- Node.js 18+
-- Expo Go on your phone
-- Internet connection for chat responses and web search
+- Node.js 18+ (20 LTS recommended; matches CI)
+- A Mac for iOS signing / TestFlight / App Store (see **BUILD.md**)
+- Expo Go on your iPhone for day-to-day JS work
+- Internet for chat replies and web search
 
-## Quick Start
-
-Install dependencies:
+## Quick Start (Mac)
 
 ```bash
+git clone https://github.com/VedSoni-dev/privateaiapp.git
+cd privateaiapp
 npm install
-```
-
-Start Metro for Expo Go:
-
-```bash
 npx expo start --go -c
 ```
 
-Scan the QR code with Expo Go. No Xcode, native iOS build, or TestFlight loop is required for this Expo Go version.
+Scan the QR code with Expo Go (same Wi‑Fi as the Mac). No local Xcode build is
+required for JS iteration.
+
+First time shipping to a real device / TestFlight / App Store — follow
+**BUILD.md** (Mac toolchain + EAS), then **LAUNCH.md** (IAP + store listing).
+Windows PowerShell steps are retired; this project is Mac-first for iOS.
 
 ## How It Works
 

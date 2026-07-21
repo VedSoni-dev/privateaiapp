@@ -42,3 +42,16 @@ rely on `npm test` for its logic and `node --check` for syntax. To exercise the
 live chat API, `npm run test:api` hits the deployed Render backend + Worker (URLs
 hardcoded in `scripts/test-api.mjs`, overridable via `BACKEND_URL`/`WORKER_URL`);
 the Render free tier sleeps, so the first call can cold-start for 20-30s.
+
+### Mac / iOS shipping (human developer, not this VM)
+
+This Cloud Agent environment is Linux — it cannot run Xcode, the iOS Simulator,
+or EAS credential prompts that need Apple login UI. Human iOS work happens on a
+**Mac** using **BUILD.md** (toolchain + Expo Go / EAS) then **LAUNCH.md**
+(App Store Connect + RevenueCat + TestFlight). Windows PowerShell docs were
+retired; do not resurrect `EAS_NO_VCS=1` / `C:\Users\...` paths.
+
+Code is launch-ready; remaining blockers are account-side (Paid Apps agreement,
+subscription product `pro_monthly`, RevenueCat webhook `RC_WEBHOOK_AUTH` on
+Render, delete `ALLOW_CLIENT_PRO`, on-device Live Activity smoke test). Listing
+copy is in `store/LISTING.md`.
